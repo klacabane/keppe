@@ -1,0 +1,17 @@
+#item-container {padding: 50px;}
+
+.music {
+  height: 120px;
+}
+
+.movie {
+  height: 260px;
+}
+
+.youtube {
+  border: none !important;
+  border-radius: 0px !important;
+  box-shadow: 0px 0px 0px 0px !important;
+}
+
+.item-loader {height: 120px;}
