@@ -15,3 +15,9 @@
 }
 
 .item-loader {height: 120px;}
+
+.event {width: 100%;}
+
+#hours-table.ui.celled.table tr td {
+  height: 46px !important;
+}

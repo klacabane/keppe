@@ -26,13 +26,19 @@ router.get('/calendar/:year/:month', (req, res) => {
 
   var len = getMonthDays(year, month);
   for (var i = 1; i <= len; i++) {
-    var day = new Date(year, month, i).getDay();
+    var date = new Date(year, month, i, 0, 0, 0, 0);
     // search event for this day
 
     ret.days.push({
-      num: i,
-      day: day,
-      daystr: daystr(day)
+      date: date,
+      daystr: daystr(date.getDay()),
+      events: [{
+        id: 1,
+        title: 'Event 1'
+      }, {
+        id: 2,
+        title: 'Event 2'
+      }]
     });
   }
 
@@ -50,11 +56,11 @@ var getMonthDays = (year, month) => {
 }
 
 var addDelta = (days) => {
-  var pre = days[0].day === 0
+  var pre = days[0].date.getDay() === 0
     ? 6
-    : days[0].day - 1;
-  var post = days[days.length-1].day > 0 
-    ? 7 - days[days.length-1].day
+    : days[0].date.getDay() - 1;
+  var post = days[days.length-1].date.getDay() > 0 
+    ? 7 - days[days.length-1].date.getDay()
     : 0;
 
   return new Array(pre)

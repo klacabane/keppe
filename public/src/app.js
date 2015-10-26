@@ -43,5 +43,5 @@ class ItemPanel extends React.Component {
 
 ReactDOM.render(<div className='ui grid'>
   <Menu />
-  <Calendar />
+  <Day />
 </div>, document.getElementById('container'));

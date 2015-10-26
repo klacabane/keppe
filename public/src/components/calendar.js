@@ -1,21 +1,21 @@
-var monthstr = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+let monthstr = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
   'September', 'October', 'November', 'December'];
 
 class Calendar extends React.Component {
-  constructor() {
+  constructor(props) {
     super();
 
     this.state = {
       month: null,
-      date: new Date()
+      date: props.date
     };
 
     this.getMonth();
   }
 
   weeks() {
-    var ret = [];
-    for (var i = 0; i < this.state.month.days.length; i += 7) {
+    let ret = [];
+    for (let i = 0; i < this.state.month.days.length; i += 7) {
       ret.push(this.state.month.days.slice(i, i+7));
     }
     return ret;
@@ -50,16 +50,36 @@ class Calendar extends React.Component {
     }, this.getMonth);
   }
 
+  reset(e) {
+    e.preventDefault();
+
+    this.setState({
+      date: this.props.date,
+      month: null
+    }, this.getMonth);
+  }
+
   render() {
+    let c = ((this.state.date.getFullYear() === this.props.date.getFullYear())
+      && (this.state.date.getMonth() === this.props.date.getMonth()))
+      ? 'ui red basic button'
+      : 'ui basic button';
     return (
       <div className='ten wide column'>
         <div className='row'>
           {this.state.date.getFullYear()}
           {monthstr[this.state.date.getMonth()]}
         </div>
-        <button className='ui button' onClick={this.getPrevMonth.bind(this)}>Prev</button>
-        <button className='ui button' onClick={this.getNextMonth.bind(this)}>Next</button>
-        <div className='ui equal width center aligned celled grid'>
+        <div className='ui right floated buttons'>
+          <div className='ui basic button' onClick={this.getPrevMonth.bind(this)}>
+            <i className='angle left medium icon'></i>
+          </div>
+          <div className={c} onClick={this.reset.bind(this)}>Today</div>
+          <div className='ui basic button' onClick={this.getNextMonth.bind(this)}>
+            <i className='angle right medium icon'></i>
+          </div>
+        </div>
+        <div className='ui equal width celled grid'>
           <div className='row'>
             <div className='column'>Mon</div>
             <div className='column'>Tue</div>
@@ -82,6 +102,9 @@ class Calendar extends React.Component {
   }
 }
 
+Calendar.defaultProps = { date: new Date() };
+
+
 class WeekRow extends React.Component {
   constructor() {
     super();
@@ -92,9 +115,12 @@ class WeekRow extends React.Component {
       <div className='row'>
         {
           this.props.week.map((day) => {
-            return day 
-              ? <Day day={day} />
-              : <EmptyDay />;
+            if (!day) return <div className='column'></div>;
+            
+            return <DayColumn 
+              date={new Date(day.date)}
+              events={day.events}
+            />;
           })
         }
       </div>
@@ -102,49 +128,41 @@ class WeekRow extends React.Component {
   }
 }
 
-class Day extends React.Component {
+class DayColumn extends React.Component {
   constructor() {
     super();
   }
 
+  getEvents() {
+    let ret = [];
+    let len = this.props.events.length > 2 
+      ? 2 
+      : this.props.events.length;
+
+    for (let i = 0; i < len; i++) {
+      ret.push(<div className='item'>
+        <div className='content'>
+          {this.props.events[i].title}
+        </div>
+      </div>);
+    }
+    return ret;
+  }
+
   render() {
-    var c = this.props.day.num === new Date().getDate()
-      ? 'ui red circular label'
-      : 'ui circular label';
+    let c = ((this.props.date.getDate() === new Date().getDate())
+           && (this.props.date.getMonth() === new Date().getMonth())
+            && (this.props.date.getFullYear() === new Date().getFullYear()))
+      ? 'ui right floated red circular label'
+      : 'ui right floated circular label';
 
     return (
       <div className='column'>
-        <a className={c}>{this.props.day.num}</a>
+        <a className={c}>{this.props.date.getDate()}</a>
         <div className="ui middle aligned divided list">
-          <div className="item">
-            <div className="content">
-              Event 1
-            </div>
-          </div>
-          <div className="item">
-            <div className="content">
-              Event 2
-            </div>
-          </div>
-          <div className="item">
-            <div className="content">
-              Event 3
-            </div>
-          </div>
+          {this.getEvents()}
         </div>
       </div>
-    );
-  }
-}
-
-class EmptyDay extends React.Component {
-  constructor() {
-    super();
-  }
-
-  render() {
-    return (
-      <div className='column'></div>
     );
   }
 }
