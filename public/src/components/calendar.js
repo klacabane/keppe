@@ -1,7 +1,10 @@
+import React from 'react';
+import $ from 'jquery';
+
 let monthstr = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
   'September', 'October', 'November', 'December'];
 
-class Calendar extends React.Component {
+export class Calendar extends React.Component {
   constructor(props) {
     super();
 

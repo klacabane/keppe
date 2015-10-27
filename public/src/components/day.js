@@ -1,4 +1,6 @@
-class Day extends React.Component {
+import React from 'react';
+
+export class Day extends React.Component {
   constructor() {
     super();
   }
@@ -58,9 +60,9 @@ class HourList extends React.Component {
   render() {
     return (
       <div className='seven wide column'>
+        {this.getMarker()}
         <table id='hours-table' className='ui very basic celled table'>
           <tbody>
-          {this.getMarker()}
           {this.getRows()}
           </tbody>
         </table>

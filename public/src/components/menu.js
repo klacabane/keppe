@@ -1,4 +1,6 @@
-class Menu extends React.Component {
+import React from 'react';
+
+export class Menu extends React.Component {
   constructor() {
     super();
   }
@@ -7,4 +9,3 @@ class Menu extends React.Component {
     return <div className='three wide column'><a>Hi</a></div>;
   }
 }
-
