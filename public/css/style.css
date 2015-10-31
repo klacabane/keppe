@@ -16,8 +16,71 @@
 
 .item-loader {height: 120px;}
 
-.event {width: 100%;}
+.ui.basic.teal.label.event {
+  width: 98%;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  -webkit-transition-property: background, color;
+     -moz-transition-property: background;
+       -o-transition-property: background;
+          transition-property: background;
+  -webkit-transition-duration: 0.1s;
+     -moz-transition-duration: 0.1s;
+       -o-transition-duration: 0.1s;
+          transition-duration: 0.1s;
+  -webkit-transition-timing-function: linear;
+     -moz-transition-timing-function: linear;
+       -o-transition-timing-function: linear;
+          transition-timing-function: linear;
+}
+
+.ui.basic.teal.label.event:hover {
+  background: #00b5ad !important;
+  color: white !important;
+}
 
 #hours-table.ui.celled.table tr td {
   height: 46px !important;
+}
+
+#hours-table .row {
+  height: 46px;
+}
+
+#hours-table .column {
+  z-index: 999;
+}
+
+#hour-marker {
+  height: 2px;
+  width: 80%;
+  background: #CC7A71;
+  position: absolute;
+}
+
+#calendar-grid .column {
+  padding: 0;
+}
+
+.day.column {
+  cursor: pointer;
+  line-height: 40px;
+}
+
+.day.column > div.label {
+  margin-top: 8px;
+}
+
+.dayofweek.row > .column, .day.column {
+  text-align: center;
+}
+
+#calendar-grid {
+  min-width: 320px;
+}
+
+#calendar {
+  height: 50%;
 }

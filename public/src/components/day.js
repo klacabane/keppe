@@ -1,14 +1,66 @@
 import React from 'react';
+import $ from 'jquery';
+import { Calendar } from './calendar.js';
 
 export class Day extends React.Component {
   constructor() {
     super();
+
+    this.state = {
+      month: null,
+      event: null,
+      events: [],
+      date: new Date()
+    }
+  }
+
+  onEventClick(event) {
+    this.setState({
+      event: event
+    });
+  }
+
+  onDayClick(events) {
+    this.setState({
+      events: events
+    });
   }
 
   render() {
     return (
-      <HourList />
+      <div className='thirteen wide column'>
+        <div className='ui grid'>
+          <div className='eight wide column'>
+            <HourList 
+              onEventClick={this.onEventClick.bind(this)} 
+              events={this.state.events} />
+          </div>
+          <div className='two wide column'></div>
+          <div id='right-panel' className='six wide column'>
+            <div style={{position: 'fixed', padding: '50px 80px', height: '100%'}}>
+              <Calendar
+                onDayClick={this.onDayClick.bind(this)}
+                month={this.state.month} />
+              <EventDetails 
+                event={this.state.event} />
+          </div>
+          </div>
+        </div>
+      </div>
     );
+  }
+}
+
+class EventDetails extends React.Component {
+  constructor(props) {
+    super();
+  }
+
+  render() {
+    if (!this.props.event)
+      return <div>No Event Selected</div>
+
+    return <div>{this.props.event.title}</div>
   }
 }
 
@@ -16,7 +68,7 @@ class HourList extends React.Component {
   constructor() {
     super();
 
-    let d = new Date();
+    const d = new Date();
     this.state = {
       hours: d.getHours(),
       minutes: d.getMinutes()
@@ -25,7 +77,7 @@ class HourList extends React.Component {
 
   componentWillMount() {
     this.interval = setInterval(() => {
-      let d = new Date();
+      const d = new Date();
       this.setState({
         hours: d.getHours(),
         minutes: d.getMinutes()
@@ -37,29 +89,35 @@ class HourList extends React.Component {
     clearInterval(this.interval);
   }
 
+  shouldComponentUpdate(nextProps, nextState) {
+    return nextProps.events !== this.props.events 
+      || nextState.hours !== this.state.hours 
+      || nextState.minutes !== this.state.minutes;
+  }
+
   getRows() {
     let ret = [];
     for (let i = 0; i <= 23; i++) {
-      ret.push(<HourRow hour={i} events={[]} />);
+      const events = this.props.events
+        .filter(event => {
+          return event.at.hour === i;
+        });
+
+      ret.push(<HourRow key={i} onEventClick={this.props.onEventClick} hour={i} events={events} />);
     }
     return ret;
   }
 
   getMarker() {
-    let m = (this.state.hours * 46) + (this.state.minutes / 1.5) + 16;
-    let style = {
-      marginTop: m,
-      height: '2px',
-      width: '80%',
-      background: 'red',
-      position: 'absolute'
+    const style = {
+      marginTop: (this.state.hours * 46) + (this.state.minutes * (46 / 60))
     };
-    return <div className='hour-marker' style={style}></div>;
+    return <div id='hour-marker' style={style}></div>;
   }
 
   render() {
     return (
-      <div className='seven wide column'>
+      <div>
         {this.getMarker()}
         <table id='hours-table' className='ui very basic celled table'>
           <tbody>
@@ -92,10 +150,31 @@ class HourRow extends React.Component {
           <div className='ui equal width grid'>
             <div className='row'>
               {
-                this.props.events.map((event) => {
+                this.props.events.map((event, i) => {
+                  const h = event.to.hour === 0
+                    ? 24 - event.at.hour
+                    : event.to.hour - event.at.hour;
+                  const m = event.to.minutes - event.at.minutes;
+
+                  const marginTop = -14 + (event.at.minutes * (46 / 60));
+                  let height = (h * 60 + m) * (46 / 60);
+                  if (height < 26) {
+                    height = 26;
+                  }
+
+                  const style = {
+                    marginTop,
+                    height: height + 'px'
+                  };
+
                   return (
-                    <div className='column'>
-                      <div className='ui teal small basic label event'>
+                    <div
+                      key={i}
+                      className='column' 
+                      onClick={
+                        () => this.props.onEventClick(event)
+                      }>
+                      <div style={style} className='ui teal small basic label event'>
                         {event.title}
                       </div>
                     </div>

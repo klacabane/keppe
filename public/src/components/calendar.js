@@ -1,7 +1,7 @@
 import React from 'react';
 import $ from 'jquery';
 
-let monthstr = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+const monthstr = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
   'September', 'October', 'November', 'December'];
 
 export class Calendar extends React.Component {
@@ -9,11 +9,11 @@ export class Calendar extends React.Component {
     super();
 
     this.state = {
-      month: null,
+      month: props.month,
       date: props.date
     };
 
-    this.getMonth();
+    this.getMonth(true);
   }
 
   weeks() {
@@ -24,7 +24,7 @@ export class Calendar extends React.Component {
     return ret;
   }
 
-  getMonth() {
+  getMonth(init) {
     $.ajax({
       method: 'GET',
       url: 'api/calendar/' + this.state.date.getFullYear() + '/' + this.state.date.getMonth()
@@ -32,6 +32,26 @@ export class Calendar extends React.Component {
       this.setState({
         month: res
       });
+
+      if (init) {
+        for (let i = 0; i < res.days.length; i++) {
+          const day = res.days[i];
+          if (!day) continue;
+
+          const d = new Date(day.date);
+          if (d.getDate() === this.state.date.getDate() &&
+              d.getMonth() === this.state.date.getMonth() &&
+              d.getFullYear() === this.state.date.getFullYear())
+          {
+            this.props.onDayClick(day.events);
+            break;
+          }
+        }
+
+        this.setState({
+          day: this.props.date
+        });
+      }
     });
   }
 
@@ -62,16 +82,23 @@ export class Calendar extends React.Component {
     }, this.getMonth);
   }
 
+  onDayClick(day, events) {
+    this.setState({
+      day: day
+    });
+    
+    this.props.onDayClick(events);
+  }
+
   render() {
-    let c = ((this.state.date.getFullYear() === this.props.date.getFullYear())
+    const c = ((this.state.date.getFullYear() === this.props.date.getFullYear())
       && (this.state.date.getMonth() === this.props.date.getMonth()))
       ? 'ui red basic button'
       : 'ui basic button';
     return (
-      <div className='ten wide column'>
-        <div className='row'>
-          {this.state.date.getFullYear()}
-          {monthstr[this.state.date.getMonth()]}
+      <div id='calendar'>
+        <div className='row' >
+          {monthstr[this.state.date.getMonth()]} {this.state.date.getFullYear()}
         </div>
         <div className='ui right floated buttons'>
           <div className='ui basic button' onClick={this.getPrevMonth.bind(this)}>
@@ -82,22 +109,26 @@ export class Calendar extends React.Component {
             <i className='angle right medium icon'></i>
           </div>
         </div>
-        <div className='ui equal width celled grid'>
-          <div className='row'>
-            <div className='column'>Mon</div>
-            <div className='column'>Tue</div>
-            <div className='column'>Wed</div>
-            <div className='column'>Thu</div>
-            <div className='column'>Fri</div>
-            <div className='column'>Sat</div>
-            <div className='column'>Sun</div>
+        <div id='calendar-grid' className='ui equal width celled grid'>
+          <div className='dayofweek row'>
+            <div className='column'>M</div>
+            <div className='column'>T</div>
+            <div className='column'>W</div>
+            <div className='column'>T</div>
+            <div className='column'>F</div>
+            <div className='column'>S</div>
+            <div className='column'>S</div>
           </div>
           {
             this.state.month 
-              ? this.weeks().map((week) => {
-                  return <WeekRow week={week} />
+              ? this.weeks().map((week, i) => {
+                return <WeekRow 
+                  onDayClick={this.onDayClick.bind(this)} 
+                  key={i} 
+                  week={week}
+                  day={this.state.day} />
                 })
-              : ''
+              : <div id='loader'></div>
           }
         </div>
       </div>
@@ -117,13 +148,20 @@ class WeekRow extends React.Component {
     return (
       <div className='row'>
         {
-          this.props.week.map((day) => {
-            if (!day) return <div className='column'></div>;
-            
+          this.props.week.map((day, i) => {
+            if (!day) return <div key={i} className='column'></div>;
+
+            const date = new Date(day.date);
+            const selected = this.props.day &&
+              this.props.day.getDate() === date.getDate() &&
+              this.props.day.getMonth() === date.getMonth() &&
+              this.props.day.getFullYear() === date.getFullYear();
             return <DayColumn 
-              date={new Date(day.date)}
-              events={day.events}
-            />;
+              onClick={this.props.onDayClick}
+              key={i}
+              date={date}
+              selected={selected}
+              events={day.events} />;
           })
         }
       </div>
@@ -137,10 +175,10 @@ class DayColumn extends React.Component {
   }
 
   getEvents() {
-    let ret = [];
-    let len = this.props.events.length > 2 
+    const len = this.props.events.length > 2 
       ? 2 
       : this.props.events.length;
+    let ret = [];
 
     for (let i = 0; i < len; i++) {
       ret.push(<div className='item'>
@@ -153,18 +191,13 @@ class DayColumn extends React.Component {
   }
 
   render() {
-    let c = ((this.props.date.getDate() === new Date().getDate())
-           && (this.props.date.getMonth() === new Date().getMonth())
-            && (this.props.date.getFullYear() === new Date().getFullYear()))
-      ? 'ui right floated red circular label'
-      : 'ui right floated circular label';
+    const c = this.props.selected
+      ? 'ui red circular label'
+      : '';
 
     return (
-      <div className='column'>
-        <a className={c}>{this.props.date.getDate()}</a>
-        <div className="ui middle aligned divided list">
-          {this.getEvents()}
-        </div>
+      <div className='day column' onClick={() => this.props.onClick(this.props.date, this.props.events)}>
+        <div className={c}>{this.props.date.getDate()}</div>
       </div>
     );
   }

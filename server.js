@@ -1,82 +1,103 @@
-var express = require('express');
-var bodyParser = require('body-parser');
+'use strict';
 
-var app = express();
+const async = require('async');
+const express = require('express');
+const bodyParser = require('body-parser');
+const mongo = require('mongodb').MongoClient;
+const conf = {
+  db: 'keppe',
+  port: 8000
+};
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({extended: true}));
+mongo.connect(process.env.MONGODB + conf.db, (err, db) => {
+  if (err) throw err;
 
-var router = express.Router();
+  let app = express();
 
-router.get('/items', (req, res) => {
-  res.json([{
-    id: 1,
-    type: 'Music',
-    title: ''
-  }]);
-});
+  app.use(bodyParser.json());
+  app.use(bodyParser.urlencoded({extended: true}));
 
-router.get('/calendar/:year/:month', (req, res) => {
-  var year = parseInt(req.params.year, 10),
-    month = parseInt(req.params.month, 10);
-  var ret = {
-    name: monthstr(month),
-    days: []
-  };
+  let router = express.Router();
+  router.get('/items', (req, res) => {
+   res.json([{
+      id: 1,
+      type: 'Music',
+      title: ''
+    }]);
+  });
 
-  var len = getMonthDays(year, month);
-  for (var i = 1; i <= len; i++) {
-    var date = new Date(year, month, i, 0, 0, 0, 0);
-    // search event for this day
+  router.get('/calendar/:year/:month', (req, res) => {
+    const year = parseInt(req.params.year, 10);
+    const month = parseInt(req.params.month, 10);
+    const days = getDays(year, month);
 
-    ret.days.push({
-      date: date,
-      daystr: daystr(date.getDay()),
-      events: [{
-        id: 1,
-        title: 'Event 1'
-      }, {
-        id: 2,
-        title: 'Event 2'
-      }]
-    });
+    let ret = {
+      name: monthstr(month),
+      days: []
+    };
+    let day;
+
+    async.whilst(
+      () => {
+        day = days.next();
+        return !day.done;
+      },
+      (next) => {
+        const date = new Date(year, month, day.value, 0, 0, 0, 0);
+        const nextDate = new Date(year, month, day.value+1, 0, 0, 0, 0);
+
+        db.collection('events')
+          .find({'date': {'$gte': date, '$lt': nextDate}})
+          .toArray((err, docs) => {
+            ret.days.push({
+              date: date,
+              daystr: daystr(date.getDay()),
+              events: docs
+            });
+
+            next(err);
+          });
+      },
+      (err) => {
+        if (err) return res.send(500);
+
+        ret.days = addDelta(ret.days);
+        res.json(ret);
+      }
+    );
+  });
+
+  const getDays = function* (year, month) {
+    let days = new Date(year, month+1, 0).getDate();
+    for (let i = 1; i <= days; i++) {
+      yield i;
+    }
   }
 
-  // compute pre and post delta for a 42days array
-  ret.days = addDelta(ret.days);
+  const addDelta = (days) => {
+    const pre = days[0].date.getDay() === 0
+      ? 6
+      : days[0].date.getDay() - 1;
+    const post = days[days.length-1].date.getDay() > 0 
+      ? 7 - days[days.length-1].date.getDay()
+      : 0;
 
-  res.json(ret);
+    return new Array(pre)
+      .concat(days, new Array(post));
+  }
+
+  const daystr = (i) => {
+    return ['Sunday', 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][i];
+  }
+
+  const monthstr = (i) => {
+    return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
+      'September', 'October', 'November', 'December'][i];
+  }
+
+  app.use('/api', router);
+  app.use(express.static('public'));
+
+  app.listen(conf.port);
 });
 
-router.post('/calendar/events', (req, res) => {
-});
-
-var getMonthDays = (year, month) => {
-  return new Date(year, month+1, 0).getDate();
-}
-
-var addDelta = (days) => {
-  var pre = days[0].date.getDay() === 0
-    ? 6
-    : days[0].date.getDay() - 1;
-  var post = days[days.length-1].date.getDay() > 0 
-    ? 7 - days[days.length-1].date.getDay()
-    : 0;
-
-  return new Array(pre)
-    .concat(days, new Array(post));
-}
-
-var daystr = (i) => {
-  return ['Sunday', 'Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][i];
-}
-
-var monthstr = (i) => {
-  return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
-    'September', 'October', 'November', 'December'][i];
-}
-
-app.use('/api', router);
-app.use(express.static('public'));
-
-app.listen(8000);
