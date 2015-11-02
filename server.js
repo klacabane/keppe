@@ -18,6 +18,7 @@ mongo.connect(process.env.MONGODB + conf.db, (err, db) => {
   app.use(bodyParser.urlencoded({extended: true}));
 
   let router = express.Router();
+
   router.get('/items', (req, res) => {
    res.json([{
       id: 1,
@@ -29,22 +30,17 @@ mongo.connect(process.env.MONGODB + conf.db, (err, db) => {
   router.get('/calendar/:year/:month', (req, res) => {
     const year = parseInt(req.params.year, 10);
     const month = parseInt(req.params.month, 10);
-    const days = getDays(year, month);
 
     let ret = {
       name: monthstr(month),
       days: []
     };
-    let day;
 
-    async.whilst(
-      () => {
-        day = days.next();
-        return !day.done;
-      },
-      (next) => {
-        const date = new Date(year, month, day.value, 0, 0, 0, 0);
-        const nextDate = new Date(year, month, day.value+1, 0, 0, 0, 0);
+    async.timesSeries(
+      getMonthLen(year, month),
+      (n, next) => {
+        const date = new Date(year, month, n+1, 0, 0, 0, 0);
+        const nextDate = new Date(year, month, n+2, 0, 0, 0, 0);
 
         db.collection('events')
           .find({'date': {'$gte': date, '$lt': nextDate}})
@@ -59,19 +55,27 @@ mongo.connect(process.env.MONGODB + conf.db, (err, db) => {
           });
       },
       (err) => {
-        if (err) return res.send(500);
+        if (err) console.log(err);
 
         ret.days = addDelta(ret.days);
         res.json(ret);
-      }
-    );
+      });
+  });
+  
+  // {
+  //  event: Event
+  // }
+  router.post('/calendar/events', (req, res) => {
+    db.collection('events')
+      .insert(req.body.event, (err, event) => {
+        if (err) console.log(err);
+
+        res.json(event);
+      });
   });
 
-  const getDays = function* (year, month) {
-    let days = new Date(year, month+1, 0).getDate();
-    for (let i = 1; i <= days; i++) {
-      yield i;
-    }
+  const getMonthLen = (year, month) => {
+    return new Date(year, month+1, 0).getDate();
   }
 
   const addDelta = (days) => {

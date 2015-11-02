@@ -1,6 +1,7 @@
 import React from 'react';
 import $ from 'jquery';
 import { Calendar } from './calendar.js';
+import { QuickEvent } from './quickevent.js';
 
 export class Day extends React.Component {
   constructor() {
@@ -14,16 +15,27 @@ export class Day extends React.Component {
     }
   }
 
-  onEventClick(event) {
+  setEvent(event) {
     this.setState({
       event: event
     });
   }
 
-  onDayClick(events) {
+  setDay(events) {
     this.setState({
       events: events
     });
+  }
+
+  createEvent(event, done) {
+    $.ajax({
+      method: 'POST',
+      url: 'api/events',
+      contentType: 'application/json',
+      data: {
+        
+      }
+    }).done(done);
   }
 
   render() {
@@ -32,17 +44,18 @@ export class Day extends React.Component {
         <div className='ui grid'>
           <div className='eight wide column'>
             <HourList 
-              onEventClick={this.onEventClick.bind(this)} 
+              onEventClick={this.setEvent.bind(this)} 
               events={this.state.events} />
           </div>
           <div className='two wide column'></div>
           <div id='right-panel' className='six wide column'>
             <div style={{position: 'fixed', padding: '50px 80px', height: '100%'}}>
               <Calendar
-                onDayClick={this.onDayClick.bind(this)}
+                onDayClick={this.setDay.bind(this)}
                 month={this.state.month} />
               <EventDetails 
                 event={this.state.event} />
+              <QuickEvent />
           </div>
           </div>
         </div>
@@ -100,7 +113,7 @@ class HourList extends React.Component {
     for (let i = 0; i <= 23; i++) {
       const events = this.props.events
         .filter(event => {
-          return event.at.hour === i;
+          return event.startDate.getHours() === i;
         });
 
       ret.push(<HourRow key={i} onEventClick={this.props.onEventClick} hour={i} events={events} />);
@@ -151,16 +164,26 @@ class HourRow extends React.Component {
             <div className='row'>
               {
                 this.props.events.map((event, i) => {
-                  const h = event.to.hour === 0
-                    ? 24 - event.at.hour
-                    : event.to.hour - event.at.hour;
-                  const m = event.to.minutes - event.at.minutes;
+                  let marginTop = -14 + (event.startDate.getMinutes() * (46 / 60));
+                  let height;
 
-                  const marginTop = -14 + (event.at.minutes * (46 / 60));
-                  let height = (h * 60 + m) * (46 / 60);
-                  if (height < 26) {
-                    height = 26;
+                  if (event.startDate.getDate() < event.endDate.getDate()) {
+                    if (event.startDate.getDate() === this.props.date.getDate())
+                      height = 100;
+                    else
+                      marginTop = 0;
+                  } else {
+                    const h = event.endDate.getHours() === 0
+                      ? 24 - event.startDate.getHours()
+                      : event.endDate.getHours() - event.startDate.getHours();
+                    const m = event.endDate.getMinutes() - event.startDate.getMinutes();
+
+                    let height = (h * 60 + m) * (46 / 60);
+                    if (height < 26) {
+                      height = 26;
+                    }
                   }
+
 
                   const style = {
                     marginTop,

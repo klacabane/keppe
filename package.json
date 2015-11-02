@@ -13,10 +13,12 @@
     "async": "^1.5.0",
     "body-parser": "*",
     "express": "*",
+    "history": "^1.13.0",
     "jquery": "^2.1.4",
     "mongodb": "^2.0.47",
     "react": "^0.14.0",
-    "react-dom": "^0.14.0"
+    "react-dom": "^0.14.0",
+    "react-router": "^1.0.0-rc3"
   },
   "devDependencies": {
     "babel-core": "^5.8.29",
