@@ -1,15 +1,15 @@
 'use strict';
 
 const async = require('async');
-const express = require('express');
 const bodyParser = require('body-parser');
+const express = require('express');
 const mongo = require('mongodb').MongoClient;
 const conf = {
   db: 'keppe',
   port: 8000
 };
 
-mongo.connect(process.env.MONGODB + conf.db, (err, db) => {
+mongo.connect(process.env.MONGODB+'/'+conf.db, (err, db) => {
   if (err) throw err;
 
   let app = express();
@@ -39,11 +39,11 @@ mongo.connect(process.env.MONGODB + conf.db, (err, db) => {
     async.timesSeries(
       getMonthLen(year, month),
       (n, next) => {
-        const date = new Date(year, month, n+1, 0, 0, 0, 0);
-        const nextDate = new Date(year, month, n+2, 0, 0, 0, 0);
+        const date = new Date(year, month, n+1, 1, 0, 0, 0);
+        const nextDate = new Date(year, month, n+2, 1, 0, 0, 0);
 
         db.collection('events')
-          .find({'date': {'$gte': date, '$lt': nextDate}})
+          .find({'startDate': {'$gte': date, '$lt': nextDate}})
           .toArray((err, docs) => {
             ret.days.push({
               date: date,
@@ -66,12 +66,15 @@ mongo.connect(process.env.MONGODB + conf.db, (err, db) => {
   //  event: Event
   // }
   router.post('/calendar/events', (req, res) => {
-    db.collection('events')
-      .insert(req.body.event, (err, event) => {
-        if (err) console.log(err);
+    db.collection('events').insertOne({
+      title: req.body.title,
+      startDate: new Date(req.body.startDate),
+      endDate: new Date(req.body.endDate)
+    }, (err, result) => {
+      if (err) console.log(err);
 
-        res.json(event);
-      });
+      res.json(result.ops[0]);
+    });
   });
 
   const getMonthLen = (year, month) => {

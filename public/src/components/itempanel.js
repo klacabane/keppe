@@ -1,6 +1,6 @@
 import React from 'react';
 
-class ItemPanel extends React.Component {
+class ItemGrid extends React.Component {
   constructor() {
     super();
 

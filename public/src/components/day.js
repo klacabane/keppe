@@ -2,16 +2,19 @@ import React from 'react';
 import $ from 'jquery';
 import { Calendar } from './calendar.js';
 import { QuickEvent } from './quickevent.js';
+import { Event } from '../models/event.js';
 
 export class Day extends React.Component {
   constructor() {
     super();
 
     this.state = {
+      // Calendar month
       month: null,
+      // Detailed event
       event: null,
-      events: [],
-      date: new Date()
+      // Event list day
+      day: {}
     }
   }
 
@@ -21,21 +24,37 @@ export class Day extends React.Component {
     });
   }
 
-  setDay(events) {
+  setDay(day) {
+    for (let i = 0; i < day.events.length; i++) {
+      day.events[i].startDate = new Date(day.events[i].startDate);
+      day.events[i].endDate = new Date(day.events[i].endDate);
+    }
+
     this.setState({
-      events: events
+      day: day
     });
   }
 
-  createEvent(event, done) {
+  createEvent(event) {
     $.ajax({
       method: 'POST',
-      url: 'api/events',
+      url: 'api/calendar/events',
       contentType: 'application/json',
-      data: {
-        
-      }
-    }).done(done);
+      data: JSON.stringify(event)
+    }).done((res) => {
+      res.startDate = new Date(res.startDate);
+      res.endDate = new Date(res.endDate);
+
+      if (res.startDate.getDate() === this.state.day.date.getDate()
+            && res.startDate.getMonth() === this.state.day.date.getMonth() 
+              && res.startDate.getYear() === this.state.day.date.getYear())
+        {
+          this.state.day.events = this.state.day.events.concat(res);
+          this.setState({
+            day: this.state.day
+          });
+        }
+    });
   }
 
   render() {
@@ -43,9 +62,12 @@ export class Day extends React.Component {
       <div className='thirteen wide column'>
         <div className='ui grid'>
           <div className='eight wide column'>
+            <QuickEvent
+              createEvent={this.createEvent.bind(this)} />
+
             <HourList 
               onEventClick={this.setEvent.bind(this)} 
-              events={this.state.events} />
+              events={this.state.day.events || []} />
           </div>
           <div className='two wide column'></div>
           <div id='right-panel' className='six wide column'>
@@ -55,8 +77,7 @@ export class Day extends React.Component {
                 month={this.state.month} />
               <EventDetails 
                 event={this.state.event} />
-              <QuickEvent />
-          </div>
+            </div>
           </div>
         </div>
       </div>
@@ -103,7 +124,7 @@ class HourList extends React.Component {
   }
 
   shouldComponentUpdate(nextProps, nextState) {
-    return nextProps.events !== this.props.events 
+    return nextProps.events.length !== this.props.events.length 
       || nextState.hours !== this.state.hours 
       || nextState.minutes !== this.state.minutes;
   }
@@ -130,7 +151,7 @@ class HourList extends React.Component {
 
   render() {
     return (
-      <div>
+      <div id='hours-list'>
         {this.getMarker()}
         <table id='hours-table' className='ui very basic celled table'>
           <tbody>
@@ -168,17 +189,14 @@ class HourRow extends React.Component {
                   let height;
 
                   if (event.startDate.getDate() < event.endDate.getDate()) {
-                    if (event.startDate.getDate() === this.props.date.getDate())
-                      height = 100;
-                    else
-                      marginTop = 0;
+
                   } else {
                     const h = event.endDate.getHours() === 0
                       ? 24 - event.startDate.getHours()
                       : event.endDate.getHours() - event.startDate.getHours();
                     const m = event.endDate.getMinutes() - event.startDate.getMinutes();
 
-                    let height = (h * 60 + m) * (46 / 60);
+                    height = (h * 60 + m) * (46 / 60);
                     if (height < 26) {
                       height = 26;
                     }

@@ -38,12 +38,12 @@ export class Calendar extends React.Component {
           const day = res.days[i];
           if (!day) continue;
 
-          const d = new Date(day.date);
-          if (d.getDate() === this.state.date.getDate() &&
-              d.getMonth() === this.state.date.getMonth() &&
-              d.getFullYear() === this.state.date.getFullYear())
+          day.date = new Date(day.date);
+          if (day.date.getDate() === this.state.date.getDate() &&
+              day.date.getMonth() === this.state.date.getMonth() &&
+              day.date.getFullYear() === this.state.date.getFullYear())
           {
-            this.props.onDayClick(day.events);
+            this.props.onDayClick(day);
             break;
           }
         }
@@ -82,12 +82,12 @@ export class Calendar extends React.Component {
     }, this.getMonth);
   }
 
-  onDayClick(day, events) {
+  onDayClick(day) {
     this.setState({
-      day: day
+      day: day.date
     });
     
-    this.props.onDayClick(events);
+    this.props.onDayClick(day);
   }
 
   render() {
@@ -196,7 +196,7 @@ class DayColumn extends React.Component {
       : '';
 
     return (
-      <div className='day column' onClick={() => this.props.onClick(this.props.date, this.props.events)}>
+      <div className='day column' onClick={() => this.props.onClick({date: this.props.date, events: this.props.events})}>
         <div className={c}>{this.props.date.getDate()}</div>
       </div>
     );
