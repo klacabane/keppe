@@ -1,5 +1,6 @@
 import React from 'react';
 import Moment from 'moment';
+import $ from 'jquery';
 import { Event } from '../models/event.js';
 
 const re = /(from|to) ([1-9]|1[0-2])(:[0-5]?[0-9])?(am|pm)/gi;
@@ -42,7 +43,11 @@ export class QuickEvent extends React.Component {
 
   suggest(e) {
     if (e.which === 13) {
-      this.props.createEvent(this.state.event);
+      if (this.state.event.title) {
+        this.props.createEvent(this.state.event, () => {
+          $(e.target).val('');
+        });
+      }
       return;
     }
 
@@ -57,7 +62,7 @@ export class QuickEvent extends React.Component {
       const delta = (when === 'today' || when === 'tomorrow')
         ? nextId
         : (nextId === 0)
-          ? todayId + 1
+          ? 7 - todayId
           : (nextId > todayId)
             ? nextId - todayId
             : 6 - todayId + nextId + 1;

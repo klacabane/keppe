@@ -35,7 +35,7 @@ export class Day extends React.Component {
     });
   }
 
-  createEvent(event) {
+  createEvent(event, done) {
     $.ajax({
       method: 'POST',
       url: 'api/calendar/events',
@@ -53,6 +53,8 @@ export class Day extends React.Component {
           this.setState({
             day: this.state.day
           });
+
+          done && done();
         }
     });
   }
@@ -61,7 +63,7 @@ export class Day extends React.Component {
     return (
       <div className='thirteen wide column'>
         <div className='ui grid'>
-          <div className='six wide column'>
+          <div className='seven wide column'>
             <QuickEvent
               createEvent={this.createEvent.bind(this)} />
 
@@ -69,8 +71,8 @@ export class Day extends React.Component {
               onEventClick={this.setEvent.bind(this)} 
               events={this.state.day.events || []} />
           </div>
-          <div id='right-panel' className='six wide column'>
-            <div style={{padding: '50px 50px', height: '100%'}}>
+          <div className='six wide fixed column'>
+            <div style={{padding: '60px 60px', height: '100%'}}>
               <Calendar
                 onDayClick={this.setDay.bind(this)}
                 month={this.state.month} />
@@ -154,7 +156,7 @@ class HourList extends React.Component {
         {this.getMarker()}
         <table id='hours-table' className='ui very basic celled table'>
           <tbody>
-          {this.getRows()}
+            {this.getRows()}
           </tbody>
         </table>
       </div>
@@ -214,7 +216,7 @@ class HourRow extends React.Component {
                       onClick={
                         () => this.props.onEventClick(event)
                       }>
-                      <div style={style} className='ui teal small basic label event'>
+                      <div style={style} className='ui teal small label event'>
                         {event.title}
                       </div>
                     </div>

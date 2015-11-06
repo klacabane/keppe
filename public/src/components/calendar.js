@@ -23,6 +23,26 @@ export class Calendar extends React.Component {
     }
     return ret;
   }
+  
+  init() {
+    for (let i = 0; i < this.state.month.days.length; i++) {
+      const day = this.state.month.days[i];
+      if (!day) continue;
+
+      day.date = new Date(day.date);
+      if (day.date.getDate() === this.state.date.getDate() &&
+          day.date.getMonth() === this.state.date.getMonth() &&
+          day.date.getFullYear() === this.state.date.getFullYear())
+      {
+        this.props.onDayClick(day);
+        break;
+      }
+    }
+
+    this.setState({
+      day: this.props.date
+    });
+  }
 
   getMonth(init) {
     $.ajax({
@@ -31,27 +51,9 @@ export class Calendar extends React.Component {
     }).done((res) => {
       this.setState({
         month: res
+      }, () => {
+        init && this.init();
       });
-
-      if (init) {
-        for (let i = 0; i < res.days.length; i++) {
-          const day = res.days[i];
-          if (!day) continue;
-
-          day.date = new Date(day.date);
-          if (day.date.getDate() === this.state.date.getDate() &&
-              day.date.getMonth() === this.state.date.getMonth() &&
-              day.date.getFullYear() === this.state.date.getFullYear())
-          {
-            this.props.onDayClick(day);
-            break;
-          }
-        }
-
-        this.setState({
-          day: this.props.date
-        });
-      }
     });
   }
 
@@ -76,10 +78,22 @@ export class Calendar extends React.Component {
   reset(e) {
     e.preventDefault();
 
-    this.setState({
-      date: this.props.date,
-      month: null
-    }, this.getMonth);
+    if (this.state.date.getFullYear() === this.props.date.getFullYear() &&
+        this.state.date.getMonth() === this.props.date.getMonth())
+    {
+
+      this.init();
+
+    } else {
+
+      this.setState({
+        date: this.props.date,
+        month: null
+      }, () => {
+        this.getMonth(true);
+      });
+
+    }
   }
 
   onDayClick(day) {
@@ -95,12 +109,13 @@ export class Calendar extends React.Component {
       && (this.state.date.getMonth() === this.props.date.getMonth()))
       ? 'ui red basic button'
       : 'ui basic button';
+
     return (
       <div id='calendar'>
-        <div className='row' >
+        <div>
           {monthstr[this.state.date.getMonth()]} {this.state.date.getFullYear()}
         </div>
-        <div className='ui right floated buttons'>
+        <div className='ui small right floated buttons'>
           <div className='ui basic button' onClick={this.getPrevMonth.bind(this)}>
             <i className='angle left medium icon'></i>
           </div>

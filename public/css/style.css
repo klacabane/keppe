@@ -16,16 +16,16 @@
 
 .item-loader {height: 120px;}
 
-.ui.basic.teal.label.event {
+.ui.teal.label.event {
   width: 98%;
   cursor: pointer;
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
-  -webkit-transition-property: background, color;
-     -moz-transition-property: background;
-       -o-transition-property: background;
-          transition-property: background;
+  -webkit-transition-property: background, color, border;
+     -moz-transition-property: background, color, border;
+       -o-transition-property: background, color, border;
+          transition-property: background, color, border;
   -webkit-transition-duration: 0.1s;
      -moz-transition-duration: 0.1s;
        -o-transition-duration: 0.1s;
@@ -36,9 +36,10 @@
           transition-timing-function: linear;
 }
 
-.ui.basic.teal.label.event:hover {
-  background: #00b5ad !important;
-  color: white !important;
+.ui.teal.label.event:hover {
+  background: white !important;
+  color: #00b5ad !important;
+  border: 1px solid #00b5ad !important;
 }
 
 #hours-list {
@@ -64,31 +65,31 @@
   position: absolute;
 }
 
-.fixed {position: fixed;}
+.fixed {position: fixed !important;}
 
 #calendar-grid .column {
   padding: 0;
 }
 
 #calendar-grid .row {
-  min-height: 40px;
+  min-height: 35px;
+  line-height: 35px;
 }
 
 .day.column {
   cursor: pointer;
-  line-height: 40px;
 }
 
 .day.column > div.label {
-  margin-top: 8px;
+  margin-top: 5px;
 }
 
 .dayofweek.row > .column, .day.column {
   text-align: center;
 }
 
-#calendar-grid {
-  min-width: 320px;
+#menu {
+  margin-top: 100px;
 }
 
 #calendar {
@@ -96,6 +97,6 @@
 }
 
 #quickevent {
-  width: 400px;
+  width: 350px;
   z-index: 9999;
 }
