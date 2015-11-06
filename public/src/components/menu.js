@@ -9,7 +9,7 @@ export class Menu extends React.Component {
   render() {
     return (
       <div className='three wide column'>
-        <div className='ui vertical labeled icon menu'>
+        <div className='ui vertical labeled fixed icon menu'>
           <Link to='/' className='item'>
             <i className='feed icon'></i>
           </Link>

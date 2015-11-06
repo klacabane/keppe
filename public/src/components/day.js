@@ -61,7 +61,7 @@ export class Day extends React.Component {
     return (
       <div className='thirteen wide column'>
         <div className='ui grid'>
-          <div className='eight wide column'>
+          <div className='six wide column'>
             <QuickEvent
               createEvent={this.createEvent.bind(this)} />
 
@@ -69,9 +69,8 @@ export class Day extends React.Component {
               onEventClick={this.setEvent.bind(this)} 
               events={this.state.day.events || []} />
           </div>
-          <div className='two wide column'></div>
           <div id='right-panel' className='six wide column'>
-            <div style={{position: 'fixed', padding: '50px 80px', height: '100%'}}>
+            <div style={{padding: '50px 50px', height: '100%'}}>
               <Calendar
                 onDayClick={this.setDay.bind(this)}
                 month={this.state.month} />

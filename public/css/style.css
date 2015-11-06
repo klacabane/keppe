@@ -41,6 +41,10 @@
   color: white !important;
 }
 
+#hours-list {
+  margin-top: 100px;
+}
+
 #hours-table.ui.celled.table tr td {
   height: 46px !important;
 }
@@ -60,8 +64,14 @@
   position: absolute;
 }
 
+.fixed {position: fixed;}
+
 #calendar-grid .column {
   padding: 0;
+}
+
+#calendar-grid .row {
+  min-height: 40px;
 }
 
 .day.column {
@@ -83,4 +93,9 @@
 
 #calendar {
   height: 50%;
+}
+
+#quickevent {
+  width: 400px;
+  z-index: 9999;
 }
