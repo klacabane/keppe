@@ -4,6 +4,10 @@ import { Router, Route } from 'react-router';
 import { Menu } from './components/menu.js';
 import { Day } from './components/day.js';
 import createHistory from 'history/lib/createBrowserHistory';
+import $ from 'jquery';
+
+$.fn.dropdown = require('semantic-ui-dropdown');
+$.fn.transition = require('semantic-ui-transition');
 
 class Calendar extends React.Component {
   render() {

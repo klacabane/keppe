@@ -3,6 +3,7 @@ import $ from 'jquery';
 import { Calendar } from './calendar.js';
 import { QuickEvent } from './quickevent.js';
 import { Event } from '../models/event.js';
+import EventForm from './eventform.js';
 
 export class Day extends React.Component {
   constructor() {
@@ -76,26 +77,13 @@ export class Day extends React.Component {
               <Calendar
                 onDayClick={this.setDay.bind(this)}
                 month={this.state.month} />
-              <EventDetails 
+              <EventForm 
                 event={this.state.event} />
             </div>
           </div>
         </div>
       </div>
     );
-  }
-}
-
-class EventDetails extends React.Component {
-  constructor(props) {
-    super();
-  }
-
-  render() {
-    if (!this.props.event)
-      return <div>No Event Selected</div>
-
-    return <div>{this.props.event.title}</div>
   }
 }
 

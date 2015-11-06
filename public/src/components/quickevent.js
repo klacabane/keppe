@@ -23,14 +23,6 @@ const literalToDayNum = {
   sunday: 0
 };
 
-class CalendarEvent {
-  constructor(time) {
-    this.startDate = new Date(time);
-    this.endDate = new Date(time);
-    this.title = 'Event';
-  }
-}
-
 export class QuickEvent extends React.Component {
   constructor(props) {
     super();
@@ -51,13 +43,13 @@ export class QuickEvent extends React.Component {
       return;
     }
 
-    let startDate = new Date();
-    let endDate = new Date();
+    let startDate = Moment();
+    let endDate = Moment();
     let val = e.target.value;
 
     if (reDay.test(val)) {
       const when = reDay.exec(val)[1];
-      const todayId = startDate.getDay();
+      const todayId = startDate.day();
       const nextId = literalToDayNum[when.toLowerCase()];
       const delta = (when === 'today' || when === 'tomorrow')
         ? nextId
@@ -65,11 +57,10 @@ export class QuickEvent extends React.Component {
           ? 7 - todayId
           : (nextId > todayId)
             ? nextId - todayId
-            : 6 - todayId + nextId + 1;
+            : 7 - todayId + nextId;
 
-      const start = startDate.getDate() + delta;
-      startDate.setDate(start);
-      endDate.setDate(start);
+      startDate.add(delta, 'days');
+      endDate.add(delta, 'days');
 
       val = val.replace(when, '').trim();
     }
@@ -87,18 +78,18 @@ export class QuickEvent extends React.Component {
         ? startDate
         : endDate;
 
-      d.setHours(hours);
-      d.setMinutes(minutes);
+      d.hours(hours);
+      d.minutes(minutes);
     }
 
     if (endDate < startDate) {
-      endDate.setDate(endDate.getDate() + 1);
+      endDate.add(1, 'days');
     }
 
     const event = new Event({
       title: val.replace(re, '').trim(),
-      startDate,
-      endDate: endDate
+      starts: startDate,
+      ends: endDate
     });
 
     console.log(event);
@@ -128,8 +119,8 @@ export class QuickEvent extends React.Component {
                 <div className='content'>
                   <div className='header'>{this.state.event.title}</div>
                   <div className='description'>
-                    <div>{Moment(this.state.event.get('startDate')).format('LLL')}</div>
-                    <div>{Moment(this.state.event.get('endDate')).format('LLL')}</div>
+                    <div>{this.state.event.get('starts').format('LLL')}</div>
+                    <div>{this.state.event.get('ends').format('LLL')}</div>
                   </div>
                 </div>
               </div>
