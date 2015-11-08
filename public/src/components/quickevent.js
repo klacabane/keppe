@@ -1,7 +1,7 @@
 import React from 'react';
 import Moment from 'moment';
 import $ from 'jquery';
-import { Event } from '../models/event.js';
+import { CalendarEvent } from '../models/event.js';
 
 const re = /(from|to) ([1-9]|1[0-2])(:[0-5]?[0-9])?(am|pm)/gi;
 const reDay = /(today|tomorrow|monday|tues(day)?|wedn(esday)?|thurs(day)?|friday|satur(day)?|sunday)/i;
@@ -35,7 +35,7 @@ export class QuickEvent extends React.Component {
 
   suggest(e) {
     if (e.which === 13) {
-      if (this.state.event.title) {
+      if (this.state.event.get('title')) {
         this.props.createEvent(this.state.event, () => {
           $(e.target).val('');
         });
@@ -82,11 +82,11 @@ export class QuickEvent extends React.Component {
       d.minutes(minutes);
     }
 
-    if (endDate < startDate) {
+    if (endDate.isBefore(startDate)) {
       endDate.add(1, 'days');
     }
 
-    const event = new Event({
+    const event = new CalendarEvent({
       title: val.replace(re, '').trim(),
       starts: startDate,
       ends: endDate

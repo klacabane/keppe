@@ -1,8 +1,9 @@
 import React from 'react';
 import $ from 'jquery';
+import moment from 'moment';
 import { Calendar } from './calendar.js';
 import { QuickEvent } from './quickevent.js';
-import { Event } from '../models/event.js';
+import { CalendarEvent } from '../models/event.js';
 import EventForm from './eventform.js';
 
 export class Day extends React.Component {
@@ -10,14 +11,79 @@ export class Day extends React.Component {
     super();
 
     this.state = {
-      // Calendar month
+      // Calendar
       month: null,
-      // Detailed event
+      // EventForm
       event: null,
-      // Event list day
-      day: {}
+      // HourList
+      day: {},
     }
   }
+
+  componentDidMount() {
+    this.getMonth();
+  }
+
+  getMonth() {
+    const init = !!!arguments.length;
+    const now = moment();
+    const year = init ? now.year() : Number(arguments[0]);
+    const month = init ? now.month() : Number(arguments[1]);
+
+    $.ajax({
+      method: 'GET',
+      url: `api/calendar/${year}/${month}`
+    }).done((res) => {
+      this.setState(
+        {
+          month: {
+            name: res.name,
+            date: moment(res.date),
+            days: res.days.map(day => {
+              if (!day) return null;
+
+              return {
+                date: moment(day.date),
+                events: day.events.map(ev => new CalendarEvent(ev))
+              };
+            })
+          },
+        },
+        () => {
+          if (init) {
+            this.setDay(
+              this.state.month.days.find(d => d && d.date.isSame(now, 'day'))
+            );
+          }
+        }
+      );
+    });
+  }
+
+  getPrevMonth(e) {
+    e.preventDefault();
+
+    const prev = this.state.month.date.subtract(1, 'month');
+    this.setState({
+      month: null,
+    }, this.getMonth.bind(this, prev.year(), prev.month()));
+  }
+
+  getNextMonth(e) {
+    e.preventDefault();
+
+    const next = this.state.month.date.add(1, 'month');
+    this.setState({
+      month: null,
+    }, this.getMonth.bind(this, next.year(), next.month()));
+  }
+
+  onReset() {
+    this.setState({
+      month: null
+    }, this.getMonth.bind(this));
+  }
+
 
   setEvent(event) {
     this.setState({
@@ -26,11 +92,6 @@ export class Day extends React.Component {
   }
 
   setDay(day) {
-    for (let i = 0; i < day.events.length; i++) {
-      day.events[i].startDate = new Date(day.events[i].startDate);
-      day.events[i].endDate = new Date(day.events[i].endDate);
-    }
-
     this.setState({
       day: day
     });
@@ -41,22 +102,34 @@ export class Day extends React.Component {
       method: 'POST',
       url: 'api/calendar/events',
       contentType: 'application/json',
-      data: JSON.stringify(event)
+      data: event.stringify()
     }).done((res) => {
-      res.startDate = new Date(res.startDate);
-      res.endDate = new Date(res.endDate);
+      const ev = new CalendarEvent(res);
+      const same = date => {
+        return date.isSame(ev.starts, 'day') || date.isSame(ev.ends, 'day');
+      };
 
-      if (res.startDate.getDate() === this.state.day.date.getDate()
-            && res.startDate.getMonth() === this.state.day.date.getMonth() 
-              && res.startDate.getYear() === this.state.day.date.getYear())
-        {
-          this.state.day.events = this.state.day.events.concat(res);
-          this.setState({
-            day: this.state.day
-          });
+      if (same(this.state.day.date)) {
 
-          done && done();
+        this.state.day.events = this.state.day.events.concat(ev);
+        this.setState({
+          day: this.state.day
+        });
+      
+      } else {
+      
+        for (let i = 0; i < this.state.month.days.length; i++) {
+          let day = this.state.month.days[i];
+          if (!day) continue;
+
+          if (same(day.date)) {
+            day.events.push(ev);
+          }
         }
+
+      }
+
+      done && done();
     });
   }
 
@@ -76,7 +149,11 @@ export class Day extends React.Component {
             <div style={{padding: '60px 60px', height: '100%'}}>
               <Calendar
                 onDayClick={this.setDay.bind(this)}
+                onPrev={this.getPrevMonth.bind(this)}
+                onNext={this.getNextMonth.bind(this)}
+                onReset={this.onReset.bind(this)}
                 month={this.state.month} />
+
               <EventForm 
                 event={this.state.event} />
             </div>
@@ -86,6 +163,7 @@ export class Day extends React.Component {
     );
   }
 }
+Day.defaultProps = { today: moment() };
 
 class HourList extends React.Component {
   constructor() {
@@ -94,18 +172,20 @@ class HourList extends React.Component {
     const d = new Date();
     this.state = {
       hours: d.getHours(),
-      minutes: d.getMinutes()
+      minutes: d.getMinutes(),
     };
   }
 
+  setTime() {
+    const d = new Date();
+    this.setState({
+      hours: d.getHours(),
+      minutes: d.getMinutes()
+    });
+  }
+
   componentWillMount() {
-    this.interval = setInterval(() => {
-      const d = new Date();
-      this.setState({
-        hours: d.getHours(),
-        minutes: d.getMinutes()
-      });
-    }, 10000);
+    this.interval = setInterval(this.setTime.bind(this), 10000);
   }
 
   componentWillUnmount() {
@@ -122,8 +202,8 @@ class HourList extends React.Component {
     let ret = [];
     for (let i = 0; i <= 23; i++) {
       const events = this.props.events
-        .filter(event => {
-          return event.startDate.getHours() === i;
+        .filter(ev => {
+          return ev.starts.hours() === i;
         });
 
       ret.push(<HourRow key={i} onEventClick={this.props.onEventClick} hour={i} events={events} />);
@@ -174,16 +254,16 @@ class HourRow extends React.Component {
             <div className='row'>
               {
                 this.props.events.map((event, i) => {
-                  let marginTop = -14 + (event.startDate.getMinutes() * (46 / 60));
+                  let marginTop = -14 + (event.starts.minutes() * (46 / 60));
                   let height;
 
-                  if (event.startDate.getDate() < event.endDate.getDate()) {
+                  if (event.starts.date() < event.ends.date()) {
 
                   } else {
-                    const h = event.endDate.getHours() === 0
-                      ? 24 - event.startDate.getHours()
-                      : event.endDate.getHours() - event.startDate.getHours();
-                    const m = event.endDate.getMinutes() - event.startDate.getMinutes();
+                    const h = event.ends.hours() === 0
+                      ? 24 - event.starts.hours()
+                      : event.ends.hours() - event.starts.hours();
+                    const m = event.ends.minutes() - event.starts.minutes();
 
                     height = (h * 60 + m) * (46 / 60);
                     if (height < 26) {

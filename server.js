@@ -4,6 +4,8 @@ const async = require('async');
 const bodyParser = require('body-parser');
 const express = require('express');
 const mongo = require('mongodb').MongoClient;
+const moment = require('moment');
+const CalendarEvent = require('./public/src/models/event.js').CalendarEvent;
 const conf = {
   db: 'keppe',
   port: 8000
@@ -23,38 +25,45 @@ mongo.connect(process.env.MONGODB+'/'+conf.db, (err, db) => {
    res.json([{
       id: 1,
       type: 'Music',
-      title: ''
+      title: '',
     }]);
   });
 
   router.get('/calendar/:year/:month', (req, res) => {
-    const year = parseInt(req.params.year, 10);
-    const month = parseInt(req.params.month, 10);
+    const year = Number(req.params.year);
+    const month = Number(req.params.month);
 
     let ret = {
       name: monthstr(month),
+      date: moment([year, month]).toDate(),
       days: []
     };
 
     async.timesSeries(
       getMonthLen(year, month),
+
       (n, next) => {
-        const date = new Date(year, month, n+1, 1, 0, 0, 0);
-        const nextDate = new Date(year, month, n+2, 1, 0, 0, 0);
+        const date = moment([year, month, n+1]);
+        const nextDate = moment([year, month, n+2]);
 
         db.collection('events')
-          .find({'startDate': {'$gte': date, '$lt': nextDate}})
+          .find({
+            'starts': {
+              '$gte': date.toDate(), 
+              '$lt': nextDate.toDate()
+            }
+          })
           .toArray((err, docs) => {
             ret.days.push({
-              date: date,
-              daystr: daystr(date.getDay()),
+              date: date.toDate(),
               events: docs
             });
 
             next(err);
           });
       },
-      (err) => {
+
+      err => {
         if (err) console.log(err);
 
         ret.days = addDelta(ret.days);
@@ -63,18 +72,23 @@ mongo.connect(process.env.MONGODB+'/'+conf.db, (err, db) => {
   });
   
   // {
-  //  event: Event
+  //  event: CalendarEvent
   // }
   router.post('/calendar/events', (req, res) => {
-    db.collection('events').insertOne({
-      title: req.body.title,
-      startDate: new Date(req.body.startDate),
-      endDate: new Date(req.body.endDate)
-    }, (err, result) => {
-      if (err) console.log(err);
+    db.collection('events').insertOne(
+      {
+        starts: moment(req.body.starts).toDate(),
+        ends: moment(req.body.ends).toDate(),
+        title: req.body.title,
+        repeat: req.body.repeat,
+      }, 
+      
+      (err, result) => {
+        if (err) console.log(err);
 
-      res.json(result.ops[0]);
-    });
+        res.json(result.ops[0]);
+      }
+    );
   });
 
   const getMonthLen = (year, month) => {

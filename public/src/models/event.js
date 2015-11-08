@@ -1,5 +1,7 @@
-import Immutable from 'immutable';
-import Moment from 'moment';
+'use strict';
+
+const Immutable = require('immutable');
+const moment = require('moment');
 
 const REPEAT = {
   NEVER: 0,
@@ -9,14 +11,36 @@ const REPEAT = {
   YEAR: 4
 }
 
-export class Event extends Immutable.Record({
-  starts: Moment(),
-  ends: Moment().add(15, 'minutes'),
+class CalendarEvent extends Immutable.Record({
+  starts: moment(),
+  ends: moment().add(15, 'minutes'),
   title: 'Event',
-  repeat: REPEAT.NEVER
+  repeat: REPEAT.NEVER,
 }) {
 
   constructor(values) {
-    super(values);
+    if (values) {
+      values = {
+        starts: moment(values.starts),
+        ends: moment(values.ends),
+        title: values.title,
+        repeat: values.repeat || REPEAT.NEVER,
+      };
+    }
+
+    super(values || {});
+  }
+
+  stringify() {
+    return JSON.stringify({
+      starts: this.starts.toDate(),
+      ends: this.ends.toDate(),
+      title: this.title,
+      repeat: this.repeat,
+    });
   }
 }
+
+module.exports = {
+  CalendarEvent,
+};

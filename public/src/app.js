@@ -11,7 +11,7 @@ $.fn.transition = require('semantic-ui-transition');
 
 class Calendar extends React.Component {
   render() {
-   return <div className='ui grid'>
+    return <div className='ui grid'>
       <Menu />
       <Day />
     </div>;
@@ -20,7 +20,7 @@ class Calendar extends React.Component {
 
 class Feed extends React.Component {
   render() {
-   return <div className='ui grid'>
+    return <div className='ui grid'>
       <Menu />
       <Day />
     </div>;

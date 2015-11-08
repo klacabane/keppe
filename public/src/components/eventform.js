@@ -16,11 +16,11 @@ export default class EventForm extends React.Component {
     return (
       <form className='ui form'>
         <div className='field'>
-          <div className="ui action input">
-            <input placeholder="Search..." type="text" />
-            <select className="ui compact selection dropdown">
+          <div className='ui action input'>
+            <input placeholder='Title' type="text" />
+            <select defaultValue='articles' className="ui compact selection dropdown">
               <option value="all">All</option>
-              <option selected="" value="articles">Articles</option>
+              <option value="articles">Articles</option>
               <option value="products">Products</option>
             </select>
           </div>
