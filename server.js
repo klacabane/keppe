@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 const express = require('express');
 const mongo = require('mongodb').MongoClient;
 const moment = require('moment');
+const spawn = require('child_process').spawn;
 const CalendarEvent = require('./public/src/models/event.js').CalendarEvent;
 const conf = {
   db: 'keppe',
@@ -68,28 +69,53 @@ mongo.connect(process.env.MONGODB+'/'+conf.db, (err, db) => {
 
         ret.days = addDelta(ret.days);
         res.json(ret);
-      });
+      }
+    );
   });
   
   // {
   //  event: CalendarEvent
   // }
   router.post('/calendar/events', (req, res) => {
-    db.collection('events').insertOne(
-      {
-        starts: moment(req.body.starts).toDate(),
-        ends: moment(req.body.ends).toDate(),
-        title: req.body.title,
-        repeat: req.body.repeat,
-      }, 
-      
-      (err, result) => {
+    const ev = {
+      starts: moment(req.body.starts).toDate(),
+      ends: moment(req.body.ends).toDate(),
+      title: req.body.title,
+      repeat: req.body.repeat,
+    };
+
+    db.collection('events')
+      .insertOne(ev, (err, result) => {
         if (err) console.log(err);
 
         res.json(result.ops[0]);
-      }
-    );
+      });
   });
+
+  const download = (opts, done) => {
+    const child = spawn('youtube-dl', [
+      '-x', '--audio-format', opts.format, '-o',
+      `${opts.dst}/%(title)s.%(ext)s`, opts.url
+    ]);
+    let err;
+    let fullpath;
+
+    child.stdout.on('data', chunk => {
+      const dst = chunk.toString()
+        .match(/Destination: (.*\.mp3)/);
+      if (dst) {
+        fullpath = dst[1];
+      }
+    });
+
+    child.stderr.on('data', msg => {
+      err = new Error(msg);
+    });
+
+    child.on('close', () => {
+      done(err, fullpath); 
+    });
+  }
 
   const getMonthLen = (year, month) => {
     return new Date(year, month+1, 0).getDate();

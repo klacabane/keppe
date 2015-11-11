@@ -1,12 +1,14 @@
 import React from 'react';
 import $ from 'jquery';
 import moment from 'moment';
-import { Calendar } from './calendar.js';
-import { QuickEvent } from './quickevent.js';
+import Calendar from './calendar.js';
+import QuickEvent from './quickevent.js';
 import { CalendarEvent } from '../models/event.js';
+import Menu from './menu.js';
 import EventForm from './eventform.js';
+import HourList from './HourList.js';
 
-export class Day extends React.Component {
+export default class CalendarApp extends React.Component {
   constructor() {
     super();
 
@@ -21,10 +23,10 @@ export class Day extends React.Component {
   }
 
   componentDidMount() {
-    this.getMonth();
+    this._getMonth();
   }
 
-  getMonth() {
+  _getMonth() {
     const init = !!!arguments.length;
     const now = moment();
     const year = init ? now.year() : Number(arguments[0]);
@@ -66,7 +68,7 @@ export class Day extends React.Component {
     const prev = this.state.month.date.subtract(1, 'month');
     this.setState({
       month: null,
-    }, this.getMonth.bind(this, prev.year(), prev.month()));
+    }, this._getMonth.bind(this, prev.year(), prev.month()));
   }
 
   getNextMonth(e) {
@@ -75,15 +77,14 @@ export class Day extends React.Component {
     const next = this.state.month.date.add(1, 'month');
     this.setState({
       month: null,
-    }, this.getMonth.bind(this, next.year(), next.month()));
+    }, this._getMonth.bind(this, next.year(), next.month()));
   }
 
   onReset() {
     this.setState({
       month: null
-    }, this.getMonth.bind(this));
+    }, this._getMonth.bind(this));
   }
-
 
   setEvent(event) {
     this.setState({
@@ -135,27 +136,31 @@ export class Day extends React.Component {
 
   render() {
     return (
-      <div className='thirteen wide column'>
-        <div className='ui grid'>
-          <div className='seven wide column'>
-            <QuickEvent
-              createEvent={this.createEvent.bind(this)} />
+      <div className='ui grid'>
+        <Menu />
 
-            <HourList 
-              onEventClick={this.setEvent.bind(this)} 
-              events={this.state.day.events || []} />
-          </div>
-          <div className='six wide fixed column'>
-            <div style={{padding: '60px 60px', height: '100%'}}>
-              <Calendar
-                onDayClick={this.setDay.bind(this)}
-                onPrev={this.getPrevMonth.bind(this)}
-                onNext={this.getNextMonth.bind(this)}
-                onReset={this.onReset.bind(this)}
-                month={this.state.month} />
+        <div className='thirteen wide column'>
+          <div className='ui grid'>
+            <div className='seven wide column'>
+              <QuickEvent
+                createEvent={this.createEvent.bind(this)} />
 
-              <EventForm 
-                event={this.state.event} />
+              <HourList 
+                onEventClick={this.setEvent.bind(this)} 
+                events={this.state.day.events || []} />
+            </div>
+            <div className='six wide fixed column'>
+              <div style={{padding: '60px 60px', height: '100%'}}>
+                <Calendar
+                  onDayClick={this.setDay.bind(this)}
+                  onPrev={this.getPrevMonth.bind(this)}
+                  onNext={this.getNextMonth.bind(this)}
+                  onReset={this.onReset.bind(this)}
+                  month={this.state.month} />
+
+                <EventForm 
+                  event={this.state.event} />
+              </div>
             </div>
           </div>
         </div>
@@ -163,138 +168,4 @@ export class Day extends React.Component {
     );
   }
 }
-Day.defaultProps = { today: moment() };
-
-class HourList extends React.Component {
-  constructor() {
-    super();
-
-    const d = new Date();
-    this.state = {
-      hours: d.getHours(),
-      minutes: d.getMinutes(),
-    };
-  }
-
-  setTime() {
-    const d = new Date();
-    this.setState({
-      hours: d.getHours(),
-      minutes: d.getMinutes()
-    });
-  }
-
-  componentWillMount() {
-    this.interval = setInterval(this.setTime.bind(this), 10000);
-  }
-
-  componentWillUnmount() {
-    clearInterval(this.interval);
-  }
-
-  shouldComponentUpdate(nextProps, nextState) {
-    return nextProps.events.length !== this.props.events.length 
-      || nextState.hours !== this.state.hours 
-      || nextState.minutes !== this.state.minutes;
-  }
-
-  getRows() {
-    let ret = [];
-    for (let i = 0; i <= 23; i++) {
-      const events = this.props.events
-        .filter(ev => {
-          return ev.starts.hours() === i;
-        });
-
-      ret.push(<HourRow key={i} onEventClick={this.props.onEventClick} hour={i} events={events} />);
-    }
-    return ret;
-  }
-
-  getMarker() {
-    const style = {
-      marginTop: (this.state.hours * 46) + (this.state.minutes * (46 / 60))
-    };
-    return <div id='hour-marker' style={style}></div>;
-  }
-
-  render() {
-    return (
-      <div id='hours-list'>
-        {this.getMarker()}
-        <table id='hours-table' className='ui very basic celled table'>
-          <tbody>
-            {this.getRows()}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-}
-
-class HourRow extends React.Component {
-  constructor() {
-    super();
-  }
-
-  label() {
-    return (this.props.hour < 10) 
-      ? '0' + this.props.hour + ':00' 
-      : this.props.hour + ':00';
-  }
-
-  render() {
-    return (
-      <tr>
-        <td className='two wide'>
-          {this.label()}
-        </td>
-        <td className='fourteen wide'>
-          <div className='ui equal width grid'>
-            <div className='row'>
-              {
-                this.props.events.map((event, i) => {
-                  let marginTop = -14 + (event.starts.minutes() * (46 / 60));
-                  let height;
-
-                  if (event.starts.date() < event.ends.date()) {
-
-                  } else {
-                    const h = event.ends.hours() === 0
-                      ? 24 - event.starts.hours()
-                      : event.ends.hours() - event.starts.hours();
-                    const m = event.ends.minutes() - event.starts.minutes();
-
-                    height = (h * 60 + m) * (46 / 60);
-                    if (height < 26) {
-                      height = 26;
-                    }
-                  }
-
-
-                  const style = {
-                    marginTop,
-                    height: height + 'px'
-                  };
-
-                  return (
-                    <div
-                      key={i}
-                      className='column' 
-                      onClick={
-                        () => this.props.onEventClick(event)
-                      }>
-                      <div style={style} className='ui teal small label event'>
-                        {event.title}
-                      </div>
-                    </div>
-                  );
-                })
-              }
-            </div>
-          </div>
-        </td>
-      </tr>
-    );
-  }
-}
+CalendarApp.defaultProps = { today: moment() };

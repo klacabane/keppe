@@ -1,7 +1,7 @@
 import React from 'react';
 import Moment from 'moment';
 import $ from 'jquery';
-import { CalendarEvent } from '../models/event.js';
+import { CalendarEvent, Item } from '../models/event.js';
 
 const re = /(from|to) ([1-9]|1[0-2])(:[0-5]?[0-9])?(am|pm)/gi;
 const reDay = /(today|tomorrow|monday|tues(day)?|wedn(esday)?|thurs(day)?|friday|satur(day)?|sunday)/i;
@@ -23,7 +23,7 @@ const literalToDayNum = {
   sunday: 0
 };
 
-export class QuickEvent extends React.Component {
+export default class QuickEvent extends React.Component {
   constructor(props) {
     super();
 

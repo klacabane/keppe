@@ -2,6 +2,7 @@
 
 const Immutable = require('immutable');
 const moment = require('moment');
+const URL = require('url');
 
 const REPEAT = {
   NEVER: 0,
@@ -41,6 +42,30 @@ class CalendarEvent extends Immutable.Record({
   }
 }
 
+const ITEM_TYPE = {
+  UNKNOWN: 0,
+  MUSIC: 1,
+  ARTICLE: 2,
+}
+
+class Item extends Immutable.Record({
+  type: ITEM_TYPE.UNKNOWN,
+  name: '',
+  url: '',
+  src: '',
+  uploaded: false,
+  createdAt: moment(),
+}) {
+  
+  constructor(values) {
+    const { hostname } = URL.parse(values.url);
+    values.src = hostname;
+
+    super(values);
+  }
+}
+
 module.exports = {
   CalendarEvent,
+  Item,
 };

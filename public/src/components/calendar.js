@@ -6,7 +6,7 @@ import { CalendarEvent } from '../models/event.js';
 const monthstr = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
   'September', 'October', 'November', 'December'];
 
-export class Calendar extends React.Component {
+export default class Calendar extends React.Component {
   constructor(props) {
     super();
 
@@ -16,7 +16,7 @@ export class Calendar extends React.Component {
     };
   }
 
-  weeks() {
+  _weeks() {
     let ret = [];
     for (let i = 0; i < this.props.month.days.length; i += 7) {
       ret.push(this.props.month.days.slice(i, i+7));
@@ -24,7 +24,7 @@ export class Calendar extends React.Component {
     return ret;
   }
   
-  reset(e) {
+  _onReset() {
     this.setState({
       selectedDate: this.props.today,
     });
@@ -32,7 +32,7 @@ export class Calendar extends React.Component {
     this.props.onReset();
   }
 
-  onDayClick(day) {
+  _onDayClick(day) {
     this.setState({
       selectedDate: day.date,
     });
@@ -42,19 +42,19 @@ export class Calendar extends React.Component {
 
   render() {
     const c = (this.state.date.isSame(this.props.date, 'month'))
-      ? 'ui red basic button'
+      ? 'ui red basic button active-today'
       : 'ui basic button';
 
     return (
       <div id='calendar'>
-        <div>
-          {this.props.month ? monthstr[this.props.month.date.month()] + this.props.month.date.year() : ''}
+        <div className='left'>
+          {this.props.month ? monthstr[this.props.month.date.month()] + ' ' + this.props.month.date.year() : ''}
         </div>
         <div className='ui small right floated buttons'>
           <div className='ui basic button' onClick={this.props.onPrev}>
             <i className='angle left medium icon'></i>
           </div>
-          <div className={c} onClick={this.reset.bind(this)}>Today</div>
+          <div className={c} onClick={this._onReset.bind(this)}>Today</div>
           <div className='ui basic button' onClick={this.props.onNext}>
             <i className='angle right medium icon'></i>
           </div>
@@ -71,14 +71,17 @@ export class Calendar extends React.Component {
           </div>
           {
             this.props.month 
-              ? this.weeks().map((week, i) => {
+              ? this._weeks().map((week, i) => {
                   return <WeekRow 
-                    onDayClick={this.onDayClick.bind(this)} 
                     key={i} 
                     week={week}
+                    onDayClick={this._onDayClick.bind(this)} 
                     selectedDay={this.state.selectedDate} />
                 })
-              : <div id='loader'></div>
+              : <div className='row' style={{height: '175px'}}>
+                  <div className='ui active loader'></div>
+                </div>
+ 
           }
         </div>
       </div>
@@ -89,10 +92,6 @@ Calendar.defaultProps = { today: moment() };
 
 
 class WeekRow extends React.Component {
-  constructor() {
-    super();
-  }
-
   render() {
     return (
       <div className='row'>
@@ -100,49 +99,17 @@ class WeekRow extends React.Component {
           this.props.week.map((day, i) => {
             if (!day) return <div key={i} className='column'></div>;
 
-            const selected = this.props.selectedDay && this.props.selectedDay.isSame(day.date, 'day');
-            return <DayColumn 
-              onClick={this.props.onDayClick}
-              key={i}
-              date={day.date}
-              selected={selected}
-              events={day.events} />;
+            const c = this.props.selectedDay && this.props.selectedDay.isSame(day.date, 'day')
+              ? 'ui red circular label'
+              : '';
+
+            return (
+              <div key={i} className='day column' onClick={() => this.props.onDayClick(day)}>
+                <div className={c}>{day.date.date()}</div>
+              </div>
+            );
           })
         }
-      </div>
-    );
-  }
-}
-
-class DayColumn extends React.Component {
-  constructor() {
-    super();
-  }
-
-  getEvents() {
-    const len = this.props.events.length > 2 
-      ? 2 
-      : this.props.events.length;
-    let ret = [];
-
-    for (let i = 0; i < len; i++) {
-      ret.push(<div className='item'>
-        <div className='content'>
-          {this.props.events[i].title}
-        </div>
-      </div>);
-    }
-    return ret;
-  }
-
-  render() {
-    const c = this.props.selected
-      ? 'ui red circular label'
-      : '';
-
-    return (
-      <div className='day column' onClick={() => this.props.onClick({date: this.props.date, events: this.props.events})}>
-        <div className={c}>{this.props.date.date()}</div>
       </div>
     );
   }

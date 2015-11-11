@@ -67,6 +67,8 @@
 
 .fixed {position: fixed !important;}
 
+#calendar-grid {background: white;}
+
 #calendar-grid .column {
   padding: 0;
 }
@@ -74,6 +76,10 @@
 #calendar-grid .row {
   min-height: 35px;
   line-height: 35px;
+}
+
+.ui.red.basic.button.active-today {
+  box-shadow: none !important;
 }
 
 .day.column {
@@ -99,4 +105,8 @@
 #quickevent {
   width: 350px;
   z-index: 9999;
+}
+
+.left {
+  float: left;
 }
