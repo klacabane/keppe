@@ -90,24 +90,19 @@ class HourRow extends React.Component {
                   let marginTop = -14 + (event.starts.minutes() * (46 / 60));
                   let height;
 
-                  if (event.starts.date() < event.ends.date()) {
+                  const h = event.ends.hours() === 0
+                    ? 24 - event.starts.hours()
+                    : event.ends.hours() - event.starts.hours();
+                  const m = event.ends.minutes() - event.starts.minutes();
 
-                  } else {
-                    const h = event.ends.hours() === 0
-                      ? 24 - event.starts.hours()
-                      : event.ends.hours() - event.starts.hours();
-                    const m = event.ends.minutes() - event.starts.minutes();
-
-                    height = (h * 60 + m) * (46 / 60);
-                    if (height < 26) {
-                      height = 26;
-                    }
+                  height = (h * 60 + m) * (46 / 60);
+                  if (height < 26) {
+                    height = 26;
                   }
-
 
                   const style = {
                     marginTop,
-                    height: height + 'px'
+                    height: height + 'px',
                   };
 
                   return (

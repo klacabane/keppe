@@ -7,6 +7,7 @@ const mongo = require('mongodb').MongoClient;
 const moment = require('moment');
 const spawn = require('child_process').spawn;
 const CalendarEvent = require('./public/src/models/event.js').CalendarEvent;
+const REPEAT = require('./public/src/models/event.js').REPEAT;
 const conf = {
   db: 'keppe',
   port: 8000
@@ -22,55 +23,119 @@ mongo.connect(process.env.MONGODB+'/'+conf.db, (err, db) => {
 
   let router = express.Router();
 
-  router.get('/items', (req, res) => {
-   res.json([{
-      id: 1,
-      type: 'Music',
-      title: '',
-    }]);
-  });
+  router.get('/items', (req, res) => {});
 
   router.get('/calendar/:year/:month', (req, res) => {
     const year = Number(req.params.year);
     const month = Number(req.params.month);
+    const starts = moment([year, month]).toDate();
 
-    let ret = {
-      name: monthstr(month),
-      date: moment([year, month]).toDate(),
-      days: []
-    };
+    async.waterfall([
+        next => {
+          db.collection('events')
+            .find({
+              'repeat': {$gt: 0},
+              'starts': {$lt: moment([year, month+1]).toDate()},
+            })
+            .toArray((err, docs) => {
+              if (err) return next(err);
 
-    async.timesSeries(
-      getMonthLen(year, month),
+              const limit = moment(starts).add(1, 'months');
+              let periodicEvents = [];
 
-      (n, next) => {
-        const date = moment([year, month, n+1]);
-        const nextDate = moment([year, month, n+2]);
+              docs.forEach((doc) => {
+                const ev = new CalendarEvent(doc);
+                let evStarts = moment(ev.starts);
 
-        db.collection('events')
-          .find({
-            'starts': {
-              '$gte': date.toDate(), 
-              '$lt': nextDate.toDate()
-            }
-          })
-          .toArray((err, docs) => {
-            ret.days.push({
-              date: date.toDate(),
-              events: docs
+                switch (ev.repeat) {
+                  case REPEAT.DAY:
+                    while (evStarts.isBefore(limit)) {
+                      evStarts.add(1, 'days');
+                      if (evStarts.isSame(starts, 'months')) {
+                        periodicEvents.push(ev.set('starts', moment(evStarts)));
+                      }
+                    }
+                    break;
+                  case REPEAT.WEEK:
+                    while (evStarts.isBefore(limit)) {
+                      evStarts.add(7, 'days');
+                      if (evStarts.isSame(starts, 'months')) {
+                        periodicEvents.push(ev.set('starts', evStarts));
+                      }
+                    }
+                    break;
+                  case REPEAT.MONTH:
+                    while (evStarts.isBefore(limit)) {
+                      evStarts.add(1, 'months');
+                      if (evStarts.isSame(starts, 'months')) {
+                        periodicEvents.push(ev.set('starts', evStarts));
+                      }
+                    }
+                    break;
+                  case REPEAT.YEAR:
+                    while (evStarts.isBefore(limit)) {
+                      evStarts.add(1, 'years');
+                      if (evStarts.isSame(starts, 'months')) {
+                        periodicEvents.push(ev.set('starts', evStarts));
+                      }
+                    }
+                    break;
+                }
+
+              });
+
+              next(null, periodicEvents);
             });
+        },
 
-            next(err);
-          });
-      },
+        (events, next) => {
+          let result = {
+            name: monthstr(month),
+            date: starts,
+            days: []
+          };
 
-      err => {
+          async.timesSeries(
+            getMonthLen(year, month),
+
+            (n, done) => {
+              const date = moment([year, month, n+1]);
+              const nextDate = moment([year, month, n+2]);
+
+              db.collection('events')
+                .find({
+                  'starts': {
+                    '$gte': date.toDate(), 
+                    '$lt': nextDate.toDate()
+                  }
+                })
+                .toArray((err, docs) => {
+                  result.days.push({
+                    date: date.toDate(),
+                    events: docs.concat(
+                      events.filter(ev => ev.starts.isSame(date, 'days'))
+                            .map(ev => ev.set('starts', ev.get('starts').toDate()))
+                    ),
+                  });
+
+                  done(err);
+                });
+            },
+
+            err => {
+              result.days = addDelta(result.days);
+
+              next(err, result)
+            }
+          );
+        }
+      ], 
+      
+      (err, result) => {
         if (err) console.log(err);
 
-        ret.days = addDelta(ret.days);
-        res.json(ret);
-      }
-    );
+        res.json(result);
+      });
   });
   
   // {

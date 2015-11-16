@@ -58,8 +58,8 @@ class Item extends Immutable.Record({
 }) {
   
   constructor(values) {
-    const { hostname } = URL.parse(values.url);
-    values.src = hostname;
+    const url = URL.parse(values.url);
+    values.src = url.hostname;
 
     super(values);
   }
@@ -68,4 +68,5 @@ class Item extends Immutable.Record({
 module.exports = {
   CalendarEvent,
   Item,
+  REPEAT,
 };
