@@ -18,10 +18,9 @@ export default class EventForm extends React.Component {
         <div className='field'>
           <div className='ui action input'>
             <input placeholder='Title' type="text" />
-            <select defaultValue='articles' className="ui compact selection dropdown">
-              <option value="all">All</option>
-              <option value="articles">Articles</option>
-              <option value="products">Products</option>
+            <select defaultValue='movie' className="ui compact selection dropdown">
+              <option value="music">Music</option>
+              <option value="movie">Movie</option>
             </select>
           </div>
         </div>
