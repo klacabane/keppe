@@ -1,7 +1,5 @@
 'use strict';
 
-const async = require('async');
-
 class Crawler {
   constructor() {
   
