@@ -3,7 +3,6 @@
 const moment = require('moment');
 const CalendarEvent = require('../public/src/models/event.js').CalendarEvent;
 const REPEAT = require('../public/src/models/event.js').REPEAT;
-const Promise = require('promise');
 
 exports.setup = (router, db) => {
 
@@ -41,9 +40,15 @@ exports.setup = (router, db) => {
   });
 
   const getDays = (year, month, periodicEvents) => {
-    periodicEvents = periodicEvents || [];
+    const len = moment([year, month]).daysInMonth(); 
+    const promises = [];
+    for (let i = 1; i <= len; i++) {
+      promises.push(getDay(i));
+    }
 
-    const getDayEvents = (daynum) => {
+    return Promise.all(promises);
+
+    function getDay(daynum) {
       const range = {
         starts: moment([year, month, daynum]).toDate(),
         ends: moment([year, month, daynum+1]).toDate(),
@@ -73,22 +78,13 @@ exports.setup = (router, db) => {
           });
       });
     };
-
-    const len = moment([year, month]).daysInMonth(); 
-    let promises = [];
-    for (let i = 1; i <= len; i++) {
-      promises.push(getDayEvents(i));
-    }
-
-    return Promise.all(promises);
   };
 
   const getPeriodicEvents = (year, month) => {
     return new Promise((resolve, reject) => {
+      const periodicEvents = [];
       const firstOfMonth = moment([year, month]);
       const limit = moment(firstOfMonth).add(1, 'months');
-
-      let periodicEvents = [];
       const addOccurrences = doc => {
         const ev = new CalendarEvent(doc);
         let d = moment(ev.starts);

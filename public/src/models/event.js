@@ -46,6 +46,7 @@ const ITEM_TYPE = {
   UNKNOWN: 0,
   MUSIC: 1,
   ARTICLE: 2,
+  TRAILER: 3,
 }
 
 class Item extends Immutable.Record({
@@ -55,11 +56,21 @@ class Item extends Immutable.Record({
   src: '',
   uploaded: false,
   createdAt: moment(),
+  srcId: 0,
 }) {
   
-  constructor(values) {
-    const url = URL.parse(values.url);
-    values.src = url.hostname;
+  constructor(type, raw) {
+    let values;
+    switch (type) {
+      case ITEM_TYPE.MUSIC:
+        values = {
+          type: type,
+          url: raw.stream_url,
+          src: URL.parse(raw.stream_url).hostname,
+          srcId: raw.id,
+        };
+        break;
+    }
 
     super(values);
   }
@@ -67,6 +78,7 @@ class Item extends Immutable.Record({
 
 module.exports = {
   CalendarEvent,
-  Item,
   REPEAT,
+  Item,
+  ITEM_TYPE,
 };

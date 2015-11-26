@@ -17,7 +17,7 @@ export default class Calendar extends React.Component {
   }
 
   _weeks() {
-    let ret = [];
+    const ret = [];
     for (let i = 0; i < this.props.month.days.length; i += 7) {
       ret.push(this.props.month.days.slice(i, i+7));
     }

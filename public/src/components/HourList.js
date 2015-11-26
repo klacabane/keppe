@@ -33,7 +33,7 @@ export default class HourList extends React.Component {
   }
 
   _getRows() {
-    let ret = [];
+    const ret = [];
     for (let i = 0; i <= 23; i++) {
       const events = this.props.events
         .filter(ev => ev.starts.hours() === i);

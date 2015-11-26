@@ -120,7 +120,7 @@ export default class CalendarApp extends React.Component {
       } else {
       
         for (let i = 0; i < this.state.month.days.length; i++) {
-          let day = this.state.month.days[i];
+          const day = this.state.month.days[i];
           if (!day) continue;
 
           if (same(day.date)) {
