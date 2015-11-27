@@ -53,6 +53,7 @@ class Item extends Immutable.Record({
   type: ITEM_TYPE.UNKNOWN,
   name: '',
   url: '',
+  html: '',
   src: '',
   uploaded: false,
   createdAt: moment(),
@@ -65,9 +66,11 @@ class Item extends Immutable.Record({
       case ITEM_TYPE.MUSIC:
         values = {
           type: type,
-          url: raw.stream_url,
-          src: URL.parse(raw.stream_url).hostname,
+          url: raw.url,
+          src: URL.parse(raw.url).hostname,
           srcId: raw.id,
+          html: raw.html,
+          name: raw.title,
         };
         break;
     }
