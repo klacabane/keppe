@@ -20,7 +20,9 @@
     "node-soundcloud": "0.0.4",
     "react": "^0.14.0",
     "react-dom": "^0.14.0",
-    "react-router": "^1.0.0-rc3"
+    "react-router": "^1.0.0-rc3",
+    "semantic-ui-dropdown": "^2.1.6",
+    "semantic-ui-transition": "^2.1.6"
   },
   "devDependencies": {
     "babel-core": "^5.8.29",

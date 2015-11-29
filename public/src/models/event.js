@@ -2,7 +2,6 @@
 
 const Immutable = require('immutable');
 const moment = require('moment');
-const URL = require('url');
 
 const REPEAT = {
   NEVER: 0,
@@ -44,17 +43,18 @@ class CalendarEvent extends Immutable.Record({
 
 const ITEM_TYPE = {
   UNKNOWN: 0,
-  MUSIC: 1,
+  SOUNDCLOUD: 1,
   ARTICLE: 2,
   TRAILER: 3,
 }
 
 class Item extends Immutable.Record({
   type: ITEM_TYPE.UNKNOWN,
+  artist: '',
   name: '',
   url: '',
-  html: '',
-  src: '',
+  downloadUrl: '',
+  src: {},
   uploaded: false,
   createdAt: moment(),
   srcId: 0,
@@ -62,17 +62,27 @@ class Item extends Immutable.Record({
   
   constructor(type, raw) {
     let values;
-    switch (type) {
-      case ITEM_TYPE.MUSIC:
-        values = {
-          type: type,
-          url: raw.url,
-          src: URL.parse(raw.url).hostname,
-          srcId: raw.id,
-          html: raw.html,
-          name: raw.title,
-        };
-        break;
+    if (typeof type === 'object') {
+      values = type;
+      values.createdAt = moment(type.createdAt);
+    } else {
+      switch (type) {
+        case ITEM_TYPE.SOUNDCLOUD:
+          values = {
+            type: type,
+            url: raw.uri,
+            downloadUrl: raw.downloadable ? raw.download_url : '',
+            src: {
+              name: 'SoundCloud',
+              img: '/images/soundcloud-icon.png',
+            },
+            srcId: raw.id,
+            name: raw.title,
+            artist: raw.user.username,
+            createdAt: moment(raw.created_at, 'YYYY/MM/DD HH:mm:ss ZZ'),
+          };
+          break;
+      }
     }
 
     super(values);

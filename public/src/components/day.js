@@ -7,6 +7,7 @@ import { CalendarEvent } from '../models/event.js';
 import Menu from './menu.js';
 import EventForm from './eventform.js';
 import HourList from './HourList.js';
+import AudioPlayer from './audioplayer.js';
 
 export default class CalendarApp extends React.Component {
   constructor() {
@@ -34,7 +35,7 @@ export default class CalendarApp extends React.Component {
 
     $.ajax({
       method: 'GET',
-      url: `api/calendar/${year}/${month}`
+      url: `api/calendar/${year}/${month}`,
     }).done((res) => {
       this.setState(
         {
@@ -164,6 +165,8 @@ export default class CalendarApp extends React.Component {
             </div>
           </div>
         </div>
+
+        <AudioPlayer />
       </div>
     );
   }

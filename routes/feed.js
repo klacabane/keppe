@@ -1,6 +1,5 @@
 'use strict';
 
-const http = require('http');
 const spawn = require('child_process').spawn;
 const Item = require('../public/src/models/event.js').Item;
 const ITEM_TYPE = require('../public/src/models/event.js').ITEM_TYPE;
@@ -10,12 +9,18 @@ SC.init({
   secret: process.env.SCSECRET,
 });
 
-const channels = [];
+const channels = [
+  {media: 'soundcloud', name: 'jazzcartier'},
+  {media: 'soundcloud', name: 'whoisdaveeast'},
+  {media: 'soundcloud', name: 'topdawgent'},
+  {media: 'soundcloud', name: 'justsza'},
+];
 
 exports.setup = (router, db) => {
   router.get('/items', (req, res) => {
     db.collection('items')
       .find()
+      .sort({createdAt: -1})
       .toArray((err, docs) => {
         if (err) console.log(err);
 
@@ -24,88 +29,59 @@ exports.setup = (router, db) => {
   });
 
   const cron = () => {
-    ignored()
-      .then(items => Promise.all([
-          scTracks(items.filter(item => item.type === ITEM_TYPE.MUSIC))
-        ])
-      )
+    Promise
+      .all([
+        scTracks()
+      ])
       .then(items => {
-        if (items.length) {
-          db.collection('items')
-            .insertMany(flatten(items), (err, result) => {
-              if (err) return Promise.reject(err);
-            });
-        }
+        const promises = flatten(items)
+          .map(item => {
+            return db.collection('items').updateOne({srcId: item.srcId}, item.toJSON(), {upsert: true})
+          });
+        return Promise.all(promises);
+      })
+      .then(result => {
+        console.log(result.reduce((acc, next) => acc + next.upsertedCount, 0) + ' new items');
       })
       .catch(err => {
-        console.log(`Cron error: ${err}`);
+        console.log(`Cron error: ${err.stack}`);
       });
   };
 
-  const ignored = () => {
+  /*
+   * Retrieves the streamable sounclound tracks
+   * Returns []Item
+   */
+  const scTracks = () => {
     return new Promise((resolve, reject) => {
-      db.collection('ignored')
-        .find()
-        .toArray((err, items) => {
-          if (err) return reject(err);
-          resolve(items);
-        });
-    });
-  };
-
-  const scTracks = (ignore) => {
-    return new Promise((resolve, reject) => {
-      Promise.all(channels.map(channel => tracks(channel.name, ignore)))
+      Promise.all(channels.map(channel => tracks(channel.name)))
         .then(result => resolve(flatten(result)))
         .catch(reject);
     });
   };
 
-  const tracks = (artist, ignore) => {
+  /*
+   * Retrieves the streamable tracks of a SC artist
+   * returns []Item
+   */
+  const tracks = artist => {
     return new Promise((resolve, reject) => {
       SC.get(`/users/${artist}/tracks`, (err, items) => {
         if (err) return reject(err);
 
-        const promises = items
-          .filter(item => item.kind === 'track' && item.streamable && !ignore.some(id => id === item.id))
-          .map(item => getTrack(item));
-
-        Promise.all(promises)
-          .then(resolve)
-          .catch(reject);
+        const ret = items
+          .filter(item => item.kind === 'track' && item.streamable)
+          .map(item => new Item(ITEM_TYPE.SOUNDCLOUD, item));
+        resolve(ret);
       });
     });
   };
 
-  const flatten = (arr) => [].concat.apply([], arr);
-
-  const getTrack = (data) => {
-    return new Promise((resolve, reject) => {
-      http.get(`http://soundcloud.com/oembed.json?url=${data.uri}&color=3C9FCE&liking=false`, 
-        res => {
-          let body = '';
-
-          res.on('data', chunk => {
-            body += chunk;
-          });
-
-          res.on('end', () => {
-            const track = {
-              id: data.id,
-              url: data.uri,
-              title: data.title,
-              type: ITEM_TYPE.MUSIC,
-              html: JSON.parse(body).html,
-            };
-            resolve(new Item(ITEM_TYPE.MUSIC, track));
-          });
-
-        })
-        .on('error', reject);
-    });
-  };
-
-  const download = (opts) => {
+  /*
+   * Spawns a youtube-dl process
+   * opts: Object {url, dst, format}
+   */
+  const download = opts => {
     return new Promise((resolve, reject) => {
       const child = spawn('youtube-dl', [
         '-x', '--audio-format', opts.format, '-o',
@@ -132,4 +108,6 @@ exports.setup = (router, db) => {
       });
     });
   };
+
+  const flatten = arr => [].concat.apply([], arr);
 };
