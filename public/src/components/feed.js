@@ -5,6 +5,7 @@ import $ from 'jquery';
 import AudioPlayer from './audioplayer.js';
 import Menu from './menu.js';
 import Player from '../player/player.js';
+import MusicFinder from './musicfinder.js';
 import { Item } from '../models/event.js';
 
 export default class Feed extends React.Component {
@@ -31,12 +32,12 @@ export default class Feed extends React.Component {
         items: res.map(item => new Item(item)),
       });
 
-      Player.addCallback('Feed', this.onItemFocus.bind(this));
+      Player.addCallback('state', 'Feed', this.onItemFocus.bind(this));
     });
   }
 
   componentWillUnmount() {
-    Player.removeCallback('Feed');
+    Player.removeCallback('state', 'Feed');
   }
 
   render() {
@@ -44,7 +45,9 @@ export default class Feed extends React.Component {
       <Menu />
 
       <div className='eight wide column'>
-        <div className='ui middle aligned very relaxed divided list'>
+        <MusicFinder />
+
+        <div id='feed-list' className='ui middle aligned very relaxed divided list'>
           {
             this.state.items.map((item, i) => {
               return <ItemRow 
@@ -80,7 +83,7 @@ class ItemRow extends React.Component {
       ? 'pause icon'
       : 'play icon';
     return <div className='item'>
-      <img className='ui avatar image' src={this.props.item.src.img} />
+      <img className='ui mini image' src={this.props.item.src.img} />
       <div className='content item-content'>
         <div className='header'>{this.props.item.name}</div>
         <div className='description'>{this.props.item.artist}</div>

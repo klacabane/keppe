@@ -104,7 +104,7 @@ export default class CalendarApp extends React.Component {
       method: 'POST',
       url: 'api/calendar/events',
       contentType: 'application/json',
-      data: event.stringify()
+      data: event.stringify(),
     }).done((res) => {
       const ev = new CalendarEvent(res);
       const same = date => {

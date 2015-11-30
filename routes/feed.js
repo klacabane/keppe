@@ -14,6 +14,8 @@ const channels = [
   {media: 'soundcloud', name: 'whoisdaveeast'},
   {media: 'soundcloud', name: 'topdawgent'},
   {media: 'soundcloud', name: 'justsza'},
+  {media: 'soundcloud', name: 'cousinstizz'},
+  {media: 'soundcloud', name: 'villainpark'},
 ];
 
 exports.setup = (router, db) => {
@@ -26,6 +28,49 @@ exports.setup = (router, db) => {
 
         res.json(docs);
       });
+  });
+
+  router.post('/items', (req, res) => {
+    db.collection('items')
+      .findOne({srcId: req.body.srcId, type: req.body.type})
+      .then(doc => {
+        if (!doc) {
+          return new Promise((resolve, reject) => {
+            db.collection('items')
+              .insertOne(req.body)
+              .then(result => resolve(result.ops[0]))
+              .catch(reject);
+          });
+        } else {
+          return Promise.resolve(doc);
+        }
+      })
+      .then(doc => {
+        const dl = downloads.add({
+          format: 'mp3',
+          dst: 'public',
+          url: doc.url,
+        });
+
+        dl.start()
+          .then(filename => {
+            console.log('done: ' + filename);
+            // update doc
+          })
+          .catch(err => {
+            console.log('dl error:' + err)
+          });
+
+        res.redirect(`downloads/${dl.id}`);
+      })
+      .catch(err => {
+        console.log(err)
+        res.statusCode(500)
+      });
+  });
+
+  router.get('/downloads/:id', (req, res) => {
+    res.json(downloads.get(req.params.id));
   });
 
   const cron = () => {
@@ -77,37 +122,76 @@ exports.setup = (router, db) => {
     });
   };
 
+  const reProgress = /\[download\]\s*(\d*)(.\d*)?%/;
   /*
    * Spawns a youtube-dl process
-   * opts: Object {url, dst, format}
    */
-  const download = opts => {
-    return new Promise((resolve, reject) => {
-      const child = spawn('youtube-dl', [
-        '-x', '--audio-format', opts.format, '-o',
-        `${opts.dst}/%(title)s.%(ext)s`, opts.url
-      ]);
-      let err;
-      let fullpath;
 
-      child.stdout.on('data', chunk => {
-        const dst = chunk.toString()
-          .match(/Destination: (.*\.mp3)/);
-        if (dst) {
-          fullpath = dst[1];
-        }
-      });
+  const downloads = {
+    _downloads: new Map(),
 
-      child.stderr.on('data', msg => {
-        err = new Error(msg);
-      });
+    /*
+     * opts: Object {url, dst, format}
+     */
+    add(opts) {
+      const dl = new Download(opts);
+      this._downloads.set(dl.id, dl);
+      return dl;
+    },
 
-      child.on('close', () => {
-        if (err) reject(err);
-        else resolve(fullpath);
+    get(id) {
+      return this._downloads.get(id);
+    },
+  }
+
+  class Download {
+    constructor(opts) {
+      this.id = Date.now();
+      this.opts = opts;
+      this.err = null;
+      this.fullpath = '';
+      this.state = 'init';
+    }
+
+    start() {
+      return new Promise((resolve, reject) => {
+        const child = spawn('youtube-dl', [
+          '-x', '--audio-format', this.opts.format, '-o',
+          `${this.opts.dst}/%(title)s.%(ext)s`, this.opts.url
+        ]);
+
+        child.stdout.on('data', chunk => {
+          const match = String(chunk).match(reProgress);
+          if (match) {
+            this.state = 'downloading';
+            this.progression = parseInt(match[1]);
+            console.log(this.progression)
+            if (this.progression === 100) {
+              this.state = 'converting';
+            }
+          }
+
+          if (this.progression === 100) {
+            const dst = String(chunk).match(/Destination: (.*\.mp3)/);
+            if (dst) {
+              this.fullpath = dst[1];
+              this.state = 'done';
+            }
+          }
+        });
+
+        child.stderr.on('data', msg => {
+          this.err = new Error(msg);
+          this.state = 'aborted';
+        });
+
+        child.on('close', () => {
+          if (this.err) reject(this.err);
+          else resolve(this.fullpath);
+        });
       });
-    });
-  };
+    }
+  }
 
   const flatten = arr => [].concat.apply([], arr);
 };

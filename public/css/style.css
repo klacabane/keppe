@@ -42,8 +42,9 @@
   border: 1px solid #00b5ad !important;
 }
 
-#hours-list {
+#hours-list, #feed-list {
   margin-top: 100px;
+  margin-bottom: 100px;
 }
 
 #hours-table.ui.celled.table tr td {
@@ -102,7 +103,7 @@
   height: 50%;
 }
 
-#quickevent {
+#quickevent, #musicfinder {
   width: 350px;
   z-index: 9999;
 }

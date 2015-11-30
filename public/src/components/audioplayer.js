@@ -3,6 +3,7 @@
 import React from 'react';
 import $ from 'jquery';
 import Player from '../player/player.js';
+import { Item } from '../models/event.js';
 
 export default class AudioPlayer extends React.Component {
   constructor() {
@@ -10,14 +11,22 @@ export default class AudioPlayer extends React.Component {
     this.state = {
       loading: Player.loading(),
       playing: Player.playing(),
+      currentTime: {},
     };
   }
 
   componentDidMount() {
-    Player.addCallback('AudioPlayer', () => {
+    Player.addCallback('state', 'AudioPlayer', () => {
       this.setState({
         loading: Player.loading(),
         playing: Player.playing(),
+      });
+    });
+
+    Player.addCallback('time', 'AudioPlayer', currentTime => {
+      console.log(currentTime)
+      this.setState({
+        currentTime,
       });
     });
   }
@@ -57,6 +66,7 @@ export default class AudioPlayer extends React.Component {
             </div>
           </div>
           <div className='three wide column'>
+            {Player.current() ? `${this.state.currentTime.minutes}:${this.state.currentTime.seconds}` : '00:00'}
             {Player.current() ? Player.current().get('name') : 'No track'}
           </div>
         </div>

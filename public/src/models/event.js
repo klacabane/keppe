@@ -44,8 +44,10 @@ class CalendarEvent extends Immutable.Record({
 const ITEM_TYPE = {
   UNKNOWN: 0,
   SOUNDCLOUD: 1,
-  ARTICLE: 2,
-  TRAILER: 3,
+  YOUTUBE_MUSIC: 2,
+  YOUTUBE_VIDEO: 3,
+  ARTICLE: 4,
+  TRAILER: 5,
 }
 
 class Item extends Immutable.Record({
@@ -53,7 +55,6 @@ class Item extends Immutable.Record({
   artist: '',
   name: '',
   url: '',
-  downloadUrl: '',
   src: {},
   uploaded: false,
   createdAt: moment(),
@@ -71,7 +72,6 @@ class Item extends Immutable.Record({
           values = {
             type: type,
             url: raw.uri,
-            downloadUrl: raw.downloadable ? raw.download_url : '',
             src: {
               name: 'SoundCloud',
               img: '/images/soundcloud-icon.png',
@@ -80,6 +80,20 @@ class Item extends Immutable.Record({
             name: raw.title,
             artist: raw.user.username,
             createdAt: moment(raw.created_at, 'YYYY/MM/DD HH:mm:ss ZZ'),
+          };
+          break;
+
+        case ITEM_TYPE.YOUTUBE_MUSIC:
+          values = {
+            name: '',
+            artist: '',
+            type: type,
+            url: raw.url,
+            src: {
+              name: 'YouTube',
+              img: '/images/youtube-icon.png',
+            },
+            srcId: /watch\?v=([a-zA-Z0-9]*)/.exec(raw.url)[1],
           };
           break;
       }

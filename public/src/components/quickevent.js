@@ -89,13 +89,13 @@ export default class QuickEvent extends React.Component {
     const event = new CalendarEvent({
       title: val.replace(re, '').trim(),
       starts: startDate,
-      ends: endDate
+      ends: endDate,
     });
 
     console.log(event);
     this.setState({
       event: event,
-      show: true
+      show: true,
     });
   }
 
