@@ -29,51 +29,64 @@ exports.setup = (router, db) => {
   });
 
   router.post('/items', (req, res) => {
+    // Ends response if document is already uploaded or on db error.
+    // Response will otherwise be redirected to the download status endpoint.
+    const createIfNotExists = doc => {
+      if (doc) {
+        if (doc.uploaded) {
+          res.status(200).end();
+          throw 'Item is already uploaded.';
+        }
+        return doc;
+      } else {
+        return new Promise((resolve, reject) => {
+          db.collection('items')
+            .insertOne(req.body)
+            .then(result => resolve(result.ops[0]))
+            .catch(err => {
+              res.end();
+              reject(err);
+            });
+        });
+      }
+    };
+
+    const download = doc => {
+      const dl = downloads.add({
+        format: 'mp3',
+        url: doc.url,
+        id: doc._id,
+      });
+
+      res.redirect(`downloads/${dl.id}`);
+
+      console.log('download started');
+      return dl.start();
+    };
+
+    const upload = dl => {
+      console.log('upload started')
+      return dl.uploadLocal();
+    }
+
+    const update = dl => {
+      return db.collection('items')
+        .updateOne(
+          {_id: dl.id},
+          {$set: {
+            url: dl.location, 
+            uploaded: true,
+            title: path.basename(dl.localpath, path.extname(dl.localpath)).trim(),
+          }}
+        );
+    }
+
     db.collection('items')
       .findOne({srcId: req.body.srcId, type: req.body.type})
-      .then(doc => {
-        if (!doc) {
-          return new Promise((resolve, reject) => {
-            db.collection('items')
-              .insertOne(req.body)
-              .then(result => resolve(result.ops[0]))
-              .catch(reject);
-          });
-        } else {
-          if (doc.uploaded) {
-            res.status(200).end();
-            throw 'Item is already uploaded.';
-          }
-          return Promise.resolve(doc);
-        }
-      })
-      .then(doc => {
-        const dl = downloads.add({
-          format: 'mp3',
-          url: doc.url,
-          id: doc._id,
-        });
-
-        res.redirect(`downloads/${dl.id}`);
-
-        return dl.start();
-      })
-      .then(dl => {
-        console.log('download done');
-        return dl.uploadLocal();
-      })
-      .then(dl => {
-        console.log('upload done');
-        return db.collection('items')
-          .updateOne(
-            {_id: dl.id},
-            {$set: {
-              url: dl.location, 
-              uploaded: true,
-              title: path.basename(dl.localpath, path.extname(dl.localpath)).trim(),
-            }}
-          );
-      })
+      .then(createIfNotExists)
+      .then(download)
+      .then(upload)
+      .then(update)
       .then(() => {
         console.log('done')
       })
@@ -157,6 +170,7 @@ exports.setup = (router, db) => {
     });
   };
 
+  const supportedMedia = ['soundcloud.com', 'youtube.com', 'youtu.be'];
 
   /*
    * Retrieves the 'hot' hhh youtube links and 
@@ -164,26 +178,31 @@ exports.setup = (router, db) => {
    * returns []Item
    */
   const hhh = () => {
+    const isSupported = item => {
+      // first check for a media obj
+      const withMedia = item.data.media && supportedMedia.indexOf(item.data.media.type) > -1;
+      // fallback on domain
+      const noMedia = supportedMedia.indexOf(item.domain) > -1;
+      return withMedia || noMedia;
+    };
+
+    const toItem = item => {
+      if (item.data.media.type === 'soundcloud.com')
+        return findScTrack(item.data.url, moment(item.created_utc));
+      else 
+        return new Item(ITEM_TYPE.YOUTUBE_LINK, item.data);
+    };
+
+    const filterMedia = body => body.data.children.filter(isSupported);
+    const toItems = arr => Promise.all(arr.map(toItem));
+
     return new Promise((resolve, reject) => {
       httpget({
         host: 'www.reddit.com',
         path: '/r/hiphopheads/hot.json',
       })
-      .then(body => {
-        const promises = body.data.children
-          .filter(item => {
-            return item.data.media && 
-              (item.data.media.type === 'soundcloud.com' || item.data.media.type === 'youtube.com');
-          })
-          .map(item => {
-            if (item.data.media.type === 'soundcloud.com')
-              return findScTrack(item.data.url, moment(item.created_utc));
-            else 
-              return Promise.resolve(new Item(ITEM_TYPE.YOUTUBE_LINK, item.data));
-          });
-        return Promise.all(promises);
-      })
-      .then(flatten)
+      .then(filterMedia)
+      .then(toItems)
       .then(items => items.filter(item => item !== null))
       .then(resolve)
       .catch(reject);
@@ -191,12 +210,8 @@ exports.setup = (router, db) => {
   };
 
   const cron = () => {
-    const toPromise = items => {
-      const promises = items.map(item => {
-        return db.collection('items').updateOne({srcId: item.srcId}, item.toJSON(), {upsert: true});
-      });
-      return Promise.all(promises);
-    };
+    const updateOne = item => db.collection('items').updateOne({srcId: item.srcId}, item.toJSON(), {upsert: true});
+    const upsert = arr => Promise.all(arr.map(updateOne));
 
     Promise
       .all([
@@ -208,7 +223,7 @@ exports.setup = (router, db) => {
         hhh()
       ])
       .then(flatten)
-      .then(toPromise)
+      .then(upsert)
       .then(result => {
         console.log(result.reduce((acc, next) => acc + next.upsertedCount, 0) + ' new items');
       })
@@ -236,14 +251,14 @@ exports.setup = (router, db) => {
    * returns []Item
    */
   const tracks = artist => {
+    const filterStreamable = arr => arr.filter(item => item.kind === 'track' && item.streamable);
+    const toItems = arr => arr.map(item => new Item(ITEM_TYPE.SOUNDCLOUD, item));
+
     return new Promise((resolve, reject) => {
       scRequest(`/users/${artist}/tracks`)
-        .then(items => {
-          const ret = items
-            .filter(item => item.kind === 'track' && item.streamable)
-            .map(item => new Item(ITEM_TYPE.SOUNDCLOUD, item))
-          resolve(ret);
-        })
+        .then(filterStreamable)
+        .then(toItems)
+        .then(resolve)
         .catch(reject);
     });
   };

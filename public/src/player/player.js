@@ -112,7 +112,8 @@ class Player {
             this._player.play();
           })
           .catch(err => {
-            console.log(`SC.stream error: ${err}`)
+            console.log('SC.stream error:');
+            console.log(err)
           });
         break;
 
