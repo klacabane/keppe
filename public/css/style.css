@@ -1,4 +1,5 @@
 #item-container {padding: 50px;}
+#container, #container > .ui.grid {width: 100%;}
 
 .music {
   height: 120px;

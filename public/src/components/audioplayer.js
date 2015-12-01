@@ -11,8 +11,13 @@ export default class AudioPlayer extends React.Component {
     this.state = {
       loading: Player.loading(),
       playing: Player.playing(),
-      currentTime: {},
+      current: Player.current(),
     };
+  }
+
+  _format(time) {
+    const f = n => (n < 10 ? '0' : '') + n;
+    return f(time.minutes) + ':' + f(time.seconds);
   }
 
   componentDidMount() {
@@ -20,19 +25,19 @@ export default class AudioPlayer extends React.Component {
       this.setState({
         loading: Player.loading(),
         playing: Player.playing(),
+        current: Player.current(),
       });
     });
 
-    Player.addCallback('time', 'AudioPlayer', currentTime => {
-      console.log(currentTime)
+    Player.addCallback('time', 'AudioPlayer', () => {
       this.setState({
-        currentTime,
+        current: Player.current(),
       });
     });
   }
 
   componentWillUnmount() {
-    Player.removeCallback('AudioPlayer');
+    Player.removeCallbacks('AudioPlayer');
   }
 
   render() {
@@ -42,6 +47,7 @@ export default class AudioPlayer extends React.Component {
     const iconclass = this.state.playing
       ? 'pause large icon'
       : 'play large icon';
+    const current = this.state.current;
     return (
       <div className='row audioplayer'>
         <div className='ui grid'>
@@ -49,7 +55,7 @@ export default class AudioPlayer extends React.Component {
             <div className='ui small basic icon buttons'>
               <button 
                 className={btnclass} 
-                onClick={Player.playing() 
+                onClick={this.state.playing 
                   ? Player.pause.bind(Player)
                   : Player.resume.bind(Player)
                 }>
@@ -59,6 +65,7 @@ export default class AudioPlayer extends React.Component {
                 <i className='step forward large icon'></i>
               </button>
             </div>
+            {current.progress ? this._format(current.progress) : '00:00'}
           </div>
           <div className='ten wide column'>
             <div className='ui tiny progress' ref='progress'>
@@ -66,8 +73,8 @@ export default class AudioPlayer extends React.Component {
             </div>
           </div>
           <div className='three wide column'>
-            {Player.current() ? `${this.state.currentTime.minutes}:${this.state.currentTime.seconds}` : '00:00'}
-            {Player.current() ? Player.current().get('name') : 'No track'}
+            {current.duration ? this._format(current.duration) : '00:00'}
+            {current.item ? current.item.get('title') : 'No track'}
           </div>
         </div>
       </div>

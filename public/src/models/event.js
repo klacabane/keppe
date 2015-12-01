@@ -46,14 +46,59 @@ const ITEM_TYPE = {
   SOUNDCLOUD: 1,
   YOUTUBE_MUSIC: 2,
   YOUTUBE_VIDEO: 3,
-  ARTICLE: 4,
-  TRAILER: 5,
+  YOUTUBE_LINK: 4,
 }
+
+const source = {
+  'youtube': {
+    name: 'YouTube',
+    img: '/images/youtube-icon.png',
+  },
+  'soundcloud': {
+    name: 'SoundCloud',
+    img: '/images/soundcloud-icon.png',
+  },
+}
+
+const itemConfig = (type, raw) => {
+  switch (type) {
+    case ITEM_TYPE.SOUNDCLOUD:
+      return {
+        type,
+        title: raw.title,
+        artist: raw.user.username,
+        url: raw.uri,
+        src: source['soundcloud'],
+        srcId: raw.id,
+        createdAt: moment(raw.created_at, 'YYYY/MM/DD HH:mm:ss ZZ'),
+      };
+
+    case ITEM_TYPE.YOUTUBE_MUSIC:
+      return {
+        type,
+        title: '',
+        artist: '',
+        url: raw.url,
+        src: source['youtube'],
+        srcId: /watch\?v=([_a-zA-Z0-9]*)/.exec(raw.url)[1],
+      };
+
+    case ITEM_TYPE.YOUTUBE_LINK:
+      return {
+        type,
+        title: raw.title,
+        url: raw.url,
+        src: source['youtube'],
+        srcId: /watch\?v=([_a-zA-Z0-9]*)/.exec(raw.url)[1],
+        createdAt: moment.unix(raw.created_utc),
+      };
+  }
+};
 
 class Item extends Immutable.Record({
   type: ITEM_TYPE.UNKNOWN,
   artist: '',
-  name: '',
+  title: '',
   url: '',
   src: {},
   uploaded: false,
@@ -67,36 +112,7 @@ class Item extends Immutable.Record({
       values = type;
       values.createdAt = moment(type.createdAt);
     } else {
-      switch (type) {
-        case ITEM_TYPE.SOUNDCLOUD:
-          values = {
-            type: type,
-            url: raw.uri,
-            src: {
-              name: 'SoundCloud',
-              img: '/images/soundcloud-icon.png',
-            },
-            srcId: raw.id,
-            name: raw.title,
-            artist: raw.user.username,
-            createdAt: moment(raw.created_at, 'YYYY/MM/DD HH:mm:ss ZZ'),
-          };
-          break;
-
-        case ITEM_TYPE.YOUTUBE_MUSIC:
-          values = {
-            name: '',
-            artist: '',
-            type: type,
-            url: raw.url,
-            src: {
-              name: 'YouTube',
-              img: '/images/youtube-icon.png',
-            },
-            srcId: /watch\?v=([a-zA-Z0-9]*)/.exec(raw.url)[1],
-          };
-          break;
-      }
+      values = itemConfig(type, raw);
     }
 
     super(values);

@@ -9,13 +9,60 @@ SC.initialize({
 class Player {
   constructor() {
     this._queue = [];
-    this._current = null;
-    this._player = null;
+    this._current = {
+      item: null,
+      duration: null,
+      progress: null,
+    };
     this._loading = false;
     this._callbacks = {
       state: new Map(),
       time: new Map(),
     };
+    this._player = null;
+    this._htmlPlayer = document.createElement('audio');
+
+    this._htmlPlayer.onplay = this._htmlPlayer.onpause = () => {
+      this._callbacks.state.forEach(fn => fn());
+    };
+    this._htmlPlayer.oncanplay = () => {
+      this._loading = false;
+      this._current.duration = this._formatSec(this._htmlPlayer.duration);
+      this._callbacks.state.forEach(fn => fn());
+    };
+    this._htmlPlayer.onwaiting = () => {
+      this._loading = true;
+      this._callbacks.state.forEach(fn => fn());
+    };
+    this._htmlPlayer.ontimeupdate = time => {
+      this._current.progress = this._formatSec(this._htmlPlayer.currentTime);
+      this._callbacks.time.forEach(fn => fn());
+    };
+    this._htmlPlayer.onerror = e => {
+      console.log('Player._htmlPlayer error: ');
+      switch (e.target.error.code) {
+        case e.target.error.MEDIA_ERR_ABORTED:
+         console.log('MEDIA_ERR_ABORTED');
+         break;
+       case e.target.error.MEDIA_ERR_NETWORK:
+         console.log('MEDIA_ERR_NETWORK');
+         break;
+       case e.target.error.MEDIA_ERR_DECODE:
+         console.log('MEDIA_ERR_DECODE');
+         break;
+       case e.target.error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+         console.log('MEDIA_ERR_SRC_NOT_SUPPORTED');
+         break;
+       default:
+         console.log('An unknown error occurred.');
+         break;
+      };
+      this._loading = false;
+      this._player = null;
+      this._current = null;
+      this._callbacks.state.forEach(fn => fn());
+    };
+    this._htmlPlayer.onended = this.forward.bind(this);
   }
 
   _formatMs(ms) {
@@ -39,28 +86,29 @@ class Player {
     }
 
     this._loading = true;
-    this._current = item;
+    this._current = {
+      item,
+    };
     switch (item.type) {
       case ITEM_TYPE.SOUNDCLOUD:
         SC.stream(`/tracks/${item.srcId}`)
-          .then(player => {
-            player.on('state-change', (state) => {
-              this._loading = player.isLoading() || player.isBuffering();
+          .then(scPlayer => {
+            scPlayer.on('state-change', (state) => {
+              this._loading = scPlayer.isLoading() || scPlayer.isBuffering();
               this._callbacks.state.forEach(fn => fn(item));
             });
-            player.on('play-start', () => {
-              player.seek(0);
+            scPlayer.on('play-start', () => {
+              this._loading = false;
+              scPlayer.seek(0);
             });
-            player.on('time', time => {
-              const currentTime = this._formatMs(player.currentTime());
-              this._callbacks.time.forEach(fn => fn(currentTime))
+            scPlayer.on('time', time => {
+              this._current.progress = this._formatMs(scPlayer.currentTime());
+              this._callbacks.time.forEach(fn => fn())
             });
-            player.on('finish', this.forward.bind(this));
+            scPlayer.on('finish', this.forward.bind(this));
 
-            const seconds = (player.options.duration/1000)%60;
-            const minutes = (player.options.duration/(1000*60))%60;
-            console.log(`${Math.floor(minutes)}:${Math.floor(seconds)}`)
-            this._player = player;
+            this._current.duration = this._formatMs(scPlayer.options.duration);
+            this._player = scPlayer;
             this._player.play();
           })
           .catch(err => {
@@ -69,31 +117,11 @@ class Player {
         break;
 
       case ITEM_TYPE.YOUTUBE_MUSIC:
-        this._player = document.createElement('audio');
+        this._player = this._htmlPlayer;
         this._player.src = item.url;
         this._player.play();
-        this._player.onplay = this._player.onpause = () => {
-          this._loading = false;
-          this._callbacks.state.forEach(fn => fn(item));
-        };
-        this._player.onwaiting = () => {
-          this._loading = true;
-          this._callbacks.state.forEach(fn => fn(item));
-        };
-        this._player.ontimeupdate = time => {
-          const currentTime = this._formatSec(this._player.currentTime);
-          this._callbacks.time.forEach(fn => fn(currentTime));
-        };
         break;
     }
-  }
-
-  addCallback(action, key, fn) {
-    this._callbacks[action].set(key, fn);
-  }
-
-  removeCallback(action, key) {
-    this._callbacks[action].delete(key);
   }
 
   resume() {
@@ -101,7 +129,7 @@ class Player {
   }
 
   current() {
-    return this._current;
+    return this._current || {};
   }
 
   forward() {
@@ -134,6 +162,15 @@ class Player {
   repeat(val) {
     if (typeof val === 'undefined') return this._repeat;
     this._repeat = val;
+  }
+
+  addCallback(action, key, fn) {
+    this._callbacks[action].set(key, fn);
+  }
+
+  removeCallbacks(key) {
+    this._callbacks.state.delete(key);
+    this._callbacks.time.delete(key);
   }
 }
 

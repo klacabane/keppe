@@ -6,7 +6,7 @@ import AudioPlayer from './audioplayer.js';
 import Menu from './menu.js';
 import Player from '../player/player.js';
 import MusicFinder from './musicfinder.js';
-import { Item } from '../models/event.js';
+import { Item, ITEM_TYPE } from '../models/event.js';
 
 export default class Feed extends React.Component {
   constructor() {
@@ -37,7 +37,7 @@ export default class Feed extends React.Component {
   }
 
   componentWillUnmount() {
-    Player.removeCallback('state', 'Feed');
+    Player.removeCallbacks('Feed');
   }
 
   render() {
@@ -53,7 +53,7 @@ export default class Feed extends React.Component {
               return <ItemRow 
                 key={i} 
                 item={item} 
-                selected={Player.current() && Player.current().get('srcId') === item.get('srcId')} />
+                selected={Player.current().item && Player.current().item.get('srcId') === item.get('srcId')} />
             })
           }
         </div>
@@ -66,13 +66,18 @@ export default class Feed extends React.Component {
 
 class ItemRow extends React.Component {
   _toggle() {
-    if (this.props.selected)
-      if (Player.playing())
-        Player.pause();
-      else
-        Player.resume();
-    else
-        Player.play(this.props.item)
+    if (this.props.item.type === ITEM_TYPE.YOUTUBE_LINK) {
+      window.open(this.props.item.url);
+    } else {
+      if (this.props.selected) {
+        if (Player.playing())
+          Player.pause();
+        else
+          Player.resume();
+      } else {
+        Player.play(this.props.item);
+      }
+    }
   }
 
   render() {
@@ -85,15 +90,14 @@ class ItemRow extends React.Component {
     return <div className='item'>
       <img className='ui mini image' src={this.props.item.src.img} />
       <div className='content item-content'>
-        <div className='header'>{this.props.item.name}</div>
+        <div className='header'>{this.props.item.title}</div>
         <div className='description'>{this.props.item.artist}</div>
       </div>
       <div className='right floated content item-actions'>
         <div className='ui small icon buttons'>
           <button className={btnclass} onClick={this._toggle.bind(this)}><i className={iconclass}></i></button>
           <button className='ui button' onClick={() => Player.queue(this.props.item)}><i className='plus icon'></i></button>
-          <button className='ui button'><i className='download icon'></i></button>
-          <button className='ui button'><i className='remove icon'></i></button>
+          {/*<button className='ui button'><i className='remove icon'></i></button>*/}
         </div>
       </div>
     </div>;

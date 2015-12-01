@@ -40,15 +40,7 @@ exports.setup = (router, db) => {
   });
 
   const getDays = (year, month, periodicEvents) => {
-    const len = moment([year, month]).daysInMonth(); 
-    const promises = [];
-    for (let i = 1; i <= len; i++) {
-      promises.push(getDay(i));
-    }
-
-    return Promise.all(promises);
-
-    function getDay(daynum) {
+    const getDay = daynum => {
       const range = {
         starts: moment([year, month, daynum]).toDate(),
         ends: moment([year, month, daynum+1]).toDate(),
@@ -78,6 +70,13 @@ exports.setup = (router, db) => {
           });
       });
     };
+    const len = moment([year, month]).daysInMonth(); 
+    const promises = [];
+    for (let i = 1; i <= len; i++) {
+      promises.push(getDay(i));
+    }
+
+    return Promise.all(promises);
   };
 
   const getPeriodicEvents = (year, month) => {
