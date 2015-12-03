@@ -15,14 +15,7 @@ export default class MusicFinder extends React.Component {
   suggest(e) {
     if (e.which === 13) {
       if (this.state.item.get('url')) {
-        $.ajax({
-          method: 'POST',
-          url: 'api/items',
-          contentType: 'application/json',
-          data: JSON.stringify(this.state.item.toJSON()),
-        }).done(res => {
-          console.log(res);
-        });
+        this.props.onCreateItem(this.state.item);
       }
       return;
     }

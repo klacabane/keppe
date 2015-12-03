@@ -1,5 +1,6 @@
 'use strict';
 
+const os = require('os');
 const fs = require('fs');
 const path = require('path');
 const spawn = require('child_process').spawn;
@@ -18,15 +19,20 @@ module.exports = {
    * opts: Object{id, url, format}
    * returns Download
    */
-  add: opts => {
+  addDl: opts => {
     const dl = new Download(opts);
     _downloads.set(dl.id, dl);
     return dl;
   },
+  getDl: id => _downloads.get(id),
+  hasDl: id => _downloads.has(id),
+  removeDl: id => _downloads.delete(id),
 
-  get: id => {
-    return _downloads.get(id);
-  },
+  removeFile(key) {
+    s3.deleteObject({Key: key}, err => {
+      if (err) console.log(err);
+    });
+  }
 };
 
 class Download {
@@ -37,27 +43,33 @@ class Download {
     this.localpath = '';
     this.state = 'init';
     this.progress = 0;
+
+    // S3 config, set once uploaded
+    this.bucketKey = '';
+    this.location = '';
   }
 
   start() {
     return new Promise((resolve, reject) => {
-      // TODO: write to tmp
       const child = spawn('youtube-dl', [
         '-x', '--audio-format', this.opts.format, '-o',
-        `public/%(title)s.%(ext)s`, this.opts.url
+        `${os.tmpdir()}/%(title)s.%(ext)s`, this.opts.url
       ]);
+      console.log('downloading');
 
       child.stdout.on('data', chunk => {
         const match = String(chunk).match(/\[download\]\s*(\d*)(.\d*)?%/);
         if (match) {
           this.state = 'downloading';
           this.progress = parseInt(match[1]);
-          if (this.progress === 100) {
-            this.state = 'converting';
-          }
         }
 
-        if (this.progress === 100 && !this.localpath) {
+        if (this.progress === 100 && this.state !== 'converting') {
+          this.state = 'converting';
+          this.progress = 0;
+        }
+
+        if (!this.localpath) {
           const dst = String(chunk).match(/Destination: (.*\.mp3)/);
           if (dst) {
             this.localpath = dst[1];
@@ -80,16 +92,18 @@ class Download {
   }
 
   uploadLocal() {
+    const bucketKey = 'music/' + path.basename(this.localpath);
     const upload = s3.upload({
       ACL: 'public-read',
       Body: fs.createReadStream(this.localpath),
-      Key: 'music/'+path.basename(this.localpath),
+      Key: bucketKey,
     });
     upload.on('httpUploadProgress', progress => {
       this.progress = progress.total
-        ? progress.loaded / progress.total
+        ? (progress.loaded / progress.total) * 100
         : 0;
     });
+    console.log('uploading');
     this.state = 'uploading';
 
     return new Promise((resolve, reject) => {
@@ -98,11 +112,24 @@ class Download {
           this.state = 'aborted';
           return reject(err);
         }
-        // TODO: remove local file
+
+        fs.unlink(this.localpath, err => {
+          if (err) console.log(`Error removing file ${this.localpath}:\n${err}`)
+        });
         this.state = 'done';
+        this.bucketKey = bucketKey;
         this.location = data.Location;
         resolve(this);
       });
     });
-    }
+  }
+
+  toJSON() {
+    return {
+      err: this.err,
+      location: this.location,
+      state: this.state,
+      progress: this.progress,
+    };
+  }
 }

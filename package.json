@@ -12,6 +12,7 @@
   "dependencies": {
     "aws-sdk": "^2.2.19",
     "body-parser": "*",
+    "classnames": "^2.2.1",
     "express": "*",
     "history": "^1.13.0",
     "immutable": "^3.7.5",

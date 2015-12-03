@@ -5,7 +5,6 @@ const CalendarEvent = require('../public/src/models/event.js').CalendarEvent;
 const REPEAT = require('../public/src/models/event.js').REPEAT;
 
 exports.setup = (router, db) => {
-
   router.get('/calendar/:year/:month', (req, res) => {
     const year = Number(req.params.year);
     const month = Number(req.params.month);
@@ -32,10 +31,12 @@ exports.setup = (router, db) => {
     };
 
     db.collection('events')
-      .insertOne(ev, (err, result) => {
-        if (err) console.log(err);
-
+      .insertOne(ev)
+      .then(result => {
         res.json(result.ops[0]);
+      })
+      .catch(err => {
+        console.log(err);
       });
   });
 
@@ -81,23 +82,32 @@ exports.setup = (router, db) => {
 
   const getPeriodicEvents = (year, month) => {
     return new Promise((resolve, reject) => {
-      const periodicEvents = [];
       const firstOfMonth = moment([year, month]);
       const limit = moment(firstOfMonth).add(1, 'months');
+      const periodicEvents = [];
       const addOccurrences = doc => {
         const ev = new CalendarEvent(doc);
         let d = moment(ev.starts);
+        let add;
+        switch (doc.repeat) {
+          case REPEAT.DAY:
+            add = d => d.add(1, 'days'); break;
+          case REPEAT.WEEK:
+            add = d => d.add(7, 'days'); break;
+          case REPEAT.MONTH:
+            add = d => d.add(1, 'months'); break;
+          case REPEAT.YEAR:
+            add = d => d.add(1, 'years'); break;
+        }
 
-        return callback => { 
-          while (d.isBefore(limit)) {
-            if (!d.isSame(ev.starts) && d.isSame(firstOfMonth, 'months')) {
-              periodicEvents.push(
-                ev.set('starts', moment(d))
-              );
-            }
-
-            callback(d);
+        while (d.isBefore(limit)) {
+          if (!d.isSame(ev.starts) && d.isSame(firstOfMonth, 'months')) {
+            periodicEvents.push(
+              ev.set('starts', moment(d))
+            );
           }
+
+          add(d);
         }
       };
 
@@ -108,27 +118,7 @@ exports.setup = (router, db) => {
         })
         .toArray((err, docs) => {
           if (err) return reject(err);
-
-          docs.forEach(doc => {
-            const add = addOccurrences(doc);
-
-            switch (doc.repeat) {
-              case REPEAT.DAY:
-                add(d => d.add(1, 'days'));
-                break;
-              case REPEAT.WEEK:
-                add(d => d.add(7, 'days'));
-                break;
-              case REPEAT.MONTH:
-                add(d => d.add(1, 'months'));
-                break;
-              case REPEAT.YEAR:
-                add(d => d.add(1, 'years'));
-                break;
-            }
-
-          });
-
+          docs.forEach(addOccurrences);
           resolve(periodicEvents);
         });
     });

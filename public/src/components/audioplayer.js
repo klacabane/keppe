@@ -12,6 +12,7 @@ export default class AudioPlayer extends React.Component {
       loading: Player.loading(),
       playing: Player.playing(),
       current: Player.current(),
+      volume: Player.volume(),
     };
   }
 
@@ -32,6 +33,12 @@ export default class AudioPlayer extends React.Component {
     Player.addCallback('time', 'AudioPlayer', () => {
       this.setState({
         current: Player.current(),
+      });
+    });
+
+    Player.addCallback('volume', 'AudioPlayer', () => {
+      this.setState({
+        volume: Player.volume(),
       });
     });
   }
@@ -73,6 +80,11 @@ export default class AudioPlayer extends React.Component {
             </div>
           </div>
           <div className='three wide column'>
+            <div className='ui slider range'>
+              <input type='range' min='0' max='1' step='0.1' 
+                value={this.state.volume} 
+                onChange={e => Player.volume(e.target.value)} />
+            </div>
             {current.duration ? this._format(current.duration) : '00:00'}
             {current.item ? current.item.get('title') : 'No track'}
           </div>

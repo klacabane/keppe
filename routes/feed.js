@@ -1,9 +1,10 @@
 'use strict';
 
 const http = require('http');
+const ObjectId = require('mongodb').ObjectId;
 const path = require('path');
 const moment = require('moment');
-const downloads = require('../downloads.js');
+const s3util = require('../s3util.js');
 const Item = require('../public/src/models/event.js').Item;
 const ITEM_TYPE = require('../public/src/models/event.js').ITEM_TYPE;
 
@@ -16,10 +17,28 @@ const channels = [
   {media: 'soundcloud', name: 'villainpark'},
 ];
 
+const err_already_uploaded = 'Item is already uploaded.';
+
 exports.setup = (router, db) => {
+  router.delete('/items/:id', (req, res) => {
+    db.collection('items')
+      .findOneAndUpdate(
+        {_id: ObjectId.createFromHexString(req.params.id)}, 
+        {$set: {removed: true}
+      })
+      .then(result => {
+        if (result.value.uploaded) s3util.removeFile(result.value.bucketKey);
+        res.end();
+      })
+      .catch(err => {
+        res.status(500).end();
+        console.log(err);
+      });
+  });
+
   router.get('/items', (req, res) => {
     db.collection('items')
-      .find()
+      .find({removed: {$exists: false}})
       .sort({createdAt: -1})
       .toArray((err, docs) => {
         if (err) console.log(err);
@@ -29,80 +48,109 @@ exports.setup = (router, db) => {
   });
 
   router.post('/items', (req, res) => {
-    // Ends response if document is already uploaded or on db error.
-    // Response will otherwise be redirected to the download status endpoint.
-    const createIfNotExists = doc => {
-      if (doc) {
-        if (doc.uploaded) {
-          res.status(200).end();
-          throw 'Item is already uploaded.';
-        }
-        return doc;
-      } else {
-        return new Promise((resolve, reject) => {
-          db.collection('items')
-            .insertOne(req.body)
-            .then(result => resolve(result.ops[0]))
-            .catch(err => {
-              res.end();
-              reject(err);
-            });
+    insertIfNotExists(new Item(req.body))
+      .then(doc => {
+        if (doc.inserted) res.status(201);
+        else res.status(200);
+
+        res.json(doc);
+      })
+      .catch(err => {
+        console.log(err);
+        res.status(500).end();
+      });
+  });
+
+  router.get('/items/:id/download', (req, res) => {
+    if (s3util.hasDl(req.params.id)) {
+      return res.json(s3util.getDl(req.params.id));
+    }
+
+    const validate = doc => {
+      if (doc.uploaded) {
+        res.json({
+          state: 'done',
+          location: doc.url,
+          progress: 100,
         });
+
+        throw err_already_uploaded;
       }
+      return doc;
     };
 
     const download = doc => {
-      const dl = downloads.add({
-        format: 'mp3',
+      const dl = s3util.addDl({
+        id: doc._id.toHexString(),
         url: doc.url,
-        id: doc._id,
+        format: 'mp3',
       });
 
-      res.redirect(`downloads/${dl.id}`);
-
-      console.log('download started');
+      res.json(dl);
       return dl.start();
     };
 
-    const upload = dl => {
-      console.log('upload started')
-      return dl.uploadLocal();
-    }
-
     const update = dl => {
       return db.collection('items')
-        .updateOne(
-          {_id: dl.id},
+        .findOneAndUpdate(
+          {_id: ObjectId.createFromHexString(dl.id)},
           {$set: {
             url: dl.location, 
+            bucketKey: dl.bucketKey,
             uploaded: true,
             title: path.basename(dl.localpath, path.extname(dl.localpath)).trim(),
+            type: ITEM_TYPE.YOUTUBE_MUSIC,
           }}
         );
     }
 
     db.collection('items')
-      .findOne({srcId: req.body.srcId, type: req.body.type})
-      .then(createIfNotExists)
+      .findOne({_id: ObjectId.createFromHexString(req.params.id)})
+      .then(validate)
       .then(download)
-      .then(upload)
+      .then(dl => dl.uploadLocal())
       .then(update)
-      .then(() => {
-        console.log('done')
+      .then(result => {
+        s3util.removeDl(result.value._id.toHexString());
+        console.log('done');
       })
       .catch(err => {
-        if (err) console.log(err);
+        console.log(err);
       });
-  });
-
-  router.get('/downloads/:id', (req, res) => {
-    res.json(downloads.get(req.params.id));
   });
 
 
   const flatten = arr => [].concat.apply([], arr);
+  const merge = (obj1, obj2) => Object.assign({}, obj1, obj2);
 
   const replaceHttps = s => s.replace('https', 'http');
+
+  /*
+   * item: Item
+   * returns object - {dbAttrs, inserted}
+   */
+  const insertIfNotExists = item => {
+    return new Promise((resolve, reject) => {
+      db.collection('items')
+        .findOne({srcId: item.srcId})
+        .then(doc => {
+          if (doc) return doc;
+
+          const values = merge(item.toObject(), {
+            createdAt: item.createdAt.toDate(),
+          });
+          delete values.id;
+          return db.collection('items').insertOne(values);
+        })
+        .then(doc => {
+          if (doc._id) return resolve(doc);
+          resolve(
+            merge(doc.ops[0], {inserted: true})
+          );
+        })
+        .catch(reject);
+    });
+  };
 
   /*
    * Wraps http.get in a promise
@@ -126,7 +174,11 @@ exports.setup = (router, db) => {
           });
           res.on('error', reject);
           res.on('end', () => {
-            resolve(JSON.parse(body));
+            try {
+              resolve(JSON.parse(body));
+            } catch (e) {
+              reject(`Couldnt parse the response as json:\n url: ${url}\n body: ${body}`);
+            }
           });
         })
         .on('error', reject);
@@ -209,9 +261,9 @@ exports.setup = (router, db) => {
     });
   };
 
+
   const cron = () => {
-    const updateOne = item => db.collection('items').updateOne({srcId: item.srcId}, item.toJSON(), {upsert: true});
-    const upsert = arr => Promise.all(arr.map(updateOne));
+    const insert = arr => Promise.all(arr.map(insertIfNotExists));
 
     Promise
       .all([
@@ -223,9 +275,9 @@ exports.setup = (router, db) => {
         hhh()
       ])
       .then(flatten)
-      .then(upsert)
+      .then(insert)
       .then(result => {
-        console.log(result.reduce((acc, next) => acc + next.upsertedCount, 0) + ' new items');
+        console.log(result.filter(doc => doc.inserted).length + ' new items');
       })
       .catch(err => {
         console.log(`Cron error: ${err.stack}`);
@@ -262,4 +314,9 @@ exports.setup = (router, db) => {
         .catch(reject);
     });
   };
+
+  if (process.argv.length > 2) {
+    console.log('starting cron');
+    cron();
+  }
 };

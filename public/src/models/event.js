@@ -91,7 +91,6 @@ const itemConfig = (type, raw) => {
         title: raw.title,
         url: raw.url,
         src: source['youtube'],
-        createdAt: moment.unix(raw.created_utc),
         srcId: (raw.media && raw.media.type === 'youtu.be')
           ? raw.url.split('/').pop()
           : /watch\?v=([-_a-zA-Z0-9]*)/.exec(raw.url)[1]
@@ -100,6 +99,7 @@ const itemConfig = (type, raw) => {
 };
 
 class Item extends Immutable.Record({
+  id: '',
   type: ITEM_TYPE.UNKNOWN,
   artist: '',
   title: '',
@@ -114,6 +114,10 @@ class Item extends Immutable.Record({
     let values;
     if (typeof type === 'object') {
       values = type;
+      values.id = type._id || type.id;
+      values.uploaded = typeof type.uploaded === 'string'
+        ? type.uploaded === 'true'
+        : !!type.uploaded;
       values.createdAt = moment(type.createdAt);
     } else {
       values = itemConfig(type, raw);
