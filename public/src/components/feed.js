@@ -1,117 +1,66 @@
 'use strict';
 
 import React from 'react';
-import $ from 'jquery';
 import Immutable from 'immutable';
 import classNames from 'classnames';
 import Menu from './menu.js';
 import Player from '../player/player.js';
 import MusicFinder from './musicfinder.js';
 import { Item, ITEM_TYPE } from '../models/item.js';
+import ItemStore from '../stores/item.js';
+import { dispatch } from '../dispatcher.js';
 
 export default class Feed extends React.Component {
   constructor() {
     super();
     this.state = {
-      items: [],
-      removingItems: new Immutable.Set(),
-      downloadingItems: new Immutable.Set(),
+      items: ItemStore.items(),
+      currentTrack: Player.current(),
     };
-
-    this._getItems();
-  }
-
-  _getItems(done) {
-    $.ajax({
-      method: 'GET',
-      url: 'api/items',
-    }).done(res => {
-      this.setState({
-        items: res.map(item => new Item(item)),
-      });
-      done && done();
-    });
-  }
-
-  _downloadReq(item) {
-    if (!this.state.downloadingItems.has(item.id)) {
-      this.setState({
-        downloadingItems: this.state.downloadingItems.add(item.id),
-      });
-    }
-
-    const checkIfDone = res => {
-      console.log(res);
-      if (res.err) {
-        this.setState({
-          downloadingItems: this.state.downloadingItems.delete(item.id),
-        });
-        // stop
-        return;
-      }
-
-      if (res.state !== 'done') {
-        setTimeout(this._downloadReq.bind(this, item), 1500);
-      } else {
-        // refresh the items to render the updated item
-        this._getItems(() => {
-          this.setState({
-            downloadingItems: this.state.downloadingItems.delete(item.id),
-          });
-        });
-      }
-    };
-
-    $.ajax({
-      method: 'GET',
-      url: `api/items/${item.id}/download`,
-    }).done(checkIfDone);
+    // Store subscriptions
+    this.subs = [];
   }
 
   onItemRemove(item) {
-    this.setState({
-      removingItems: this.state.removingItems.add(item.id),
-    });
-    // wait until the items state is set to remove the item
-    // from the Set
-    const refresh = this._getItems.bind(this, () => {
-      this.setState({
-        removingItems: this.state.removingItems.delete(item.id),
-      });
-    });
+    if (this.state.currentTrack.item &&
+          this.state.currentTrack.item.srcId === item.srcId) {
+      Player.stop();
+    }
 
-    $.ajax({
-      method: 'DELETE',
-      url: `api/items/${item.id}`,
-    }).done(refresh);
+    ItemStore.removeItem(item);
   }
 
   onItemDownload(item) {
-    this._downloadReq(item);
+    ItemStore.download(item.id);
   }
 
   onCreateItem(item) {
-    const download = res => this._getItems(this._downloadReq.bind(this, new Item(res)));
-    $.ajax({
-      method: 'POST',
-      url: 'api/items',
-      contenType: 'application/json',
-      data: item.toJSON(),
-    }).done(download);
+    ItemStore.addItem(item);
   } 
 
   componentDidMount() {
     Player.addCallback('state', 'Feed', () => {
-      this.setState({});
+      this.setState({
+        currentTrack: Player.current(),
+      });
     });
+
+    const subItem = ItemStore.addListener(() => {
+      this.setState({
+        items: ItemStore.items(),
+      });
+    })
+    
+    this.subs.push(subItem);
   }
 
   componentWillUnmount() {
     Player.removeCallbacks('Feed');
+    this.subs.forEach(sub => sub.remove());
   }
 
   _rows() {
-    const currentTrack = Player.current().item;
+    const currentTrack = this.state.currentTrack.item;
     return this.state.items.map(item => {
       const isCurrentTrack = currentTrack && currentTrack.srcId === item.srcId;
       return <ItemRow 
@@ -120,8 +69,8 @@ export default class Feed extends React.Component {
         isCurrentTrack={isCurrentTrack}
         isPlaying={isCurrentTrack && Player.playing()}
         isLoading={isCurrentTrack && Player.loading()}
-        isDownloading={this.state.downloadingItems.has(item.id)}
-        isRemoving={this.state.removingItems.has(item.id)}
+        isDownloading={ItemStore.isDownloading(item.id)}
+        isRemoving={ItemStore.isRemoving(item.id)}
         onRemove={this.onItemRemove.bind(this, item)}
         onDownload={this.onItemDownload.bind(this, item)}
       />
@@ -147,7 +96,7 @@ export default class Feed extends React.Component {
 class ItemRow extends React.Component {
   _toggle() {
     if (this.props.isCurrentTrack) {
-      if (Player.playing())
+      if (this.props.isPlaying)
         Player.pause();
       else
         Player.resume();

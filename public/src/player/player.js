@@ -44,8 +44,10 @@ class Player {
       this._execCallbacks('state');
     };
     this._htmlPlayer.ontimeupdate = time => {
-      this._current.progress = this._formatSec(this._htmlPlayer.currentTime);
-      this._execCallbacks('time');
+      if (this._current) {
+        this._current.progress = this._formatSec(this._htmlPlayer.currentTime);
+        this._execCallbacks('time');
+      }
     };
     this._htmlPlayer.onerror = e => {
       console.log('Player._htmlPlayer error: ');
@@ -122,8 +124,10 @@ class Player {
               scPlayer.seek(0);
             });
             scPlayer.on('time', time => {
-              this._current.progress = this._formatMs(scPlayer.currentTime());
-              this._execCallbacks('time');
+              if (this._current) {
+                this._current.progress = this._formatMs(scPlayer.currentTime());
+                this._execCallbacks('time');
+              }
             });
             scPlayer.on('audio_error', err => {
               this._playing = false;
@@ -194,6 +198,14 @@ class Player {
   repeat(val) {
     if (typeof val === 'undefined') return this._repeat;
     this._repeat = !!val;
+  }
+
+  stop() {
+    this.pause();
+    this._loading = false;
+    this._current = null;
+    this._player = null;
+    this._execCallbacks('state');
   }
 
   volume(val) {

@@ -25,8 +25,9 @@ export default class MusicFinder extends React.Component {
     return (
       <div id='musicfinder' className='fixed'>
         <div className='ui form attached fluid segment'>
-          <div className='ui large fluid transparent input category search'>
+          <div className='ui large fluid transparent icon input category search'>
             <input className='prompt' placeholder='Music' />
+              <i className="search icon"></i>
             <div className='results'></div>
           </div>
         </div>
