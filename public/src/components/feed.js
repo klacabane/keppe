@@ -192,6 +192,12 @@ class ItemRow extends React.Component {
             Player.queue.bind(Player, this.props.item)),
         ];
         break;
+
+      case ITEM_TYPE.DATPIFF:
+        ret = [
+          btn('ui button', 'calendar outline icon', () => {}),
+        ];
+        break;
     }
 
     const rmbtn = btn(

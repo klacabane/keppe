@@ -47,6 +47,7 @@ const ITEM_TYPE = {
   YOUTUBE_MUSIC: 2,
   YOUTUBE_VIDEO: 3,
   YOUTUBE_LINK: 4,
+  DATPIFF: 5,
 }
 
 const source = {
@@ -58,7 +59,13 @@ const source = {
     name: 'SoundCloud',
     img: '/images/soundcloud-icon.png',
   },
+  'datpiff': {
+    name: 'DatPiff',
+    img: '/images/datpiff-icon.png',
+  },
 }
+
+const reYtId = /watch\?v=([-_a-zA-Z0-9]*)/;
 
 const itemConfig = (type, raw) => {
   switch (type) {
@@ -80,9 +87,9 @@ const itemConfig = (type, raw) => {
         artist: '',
         url: raw.url,
         src: source['youtube'],
-        srcId: (raw.media && raw.media.type === 'youtu.be')
+        srcId: (raw.domain === 'youtu.be')
           ? raw.url.split('/').pop()
-          : /watch\?v=([-_a-zA-Z0-9]*)/.exec(raw.url)[1]
+          : reYtId.exec(unescape(raw.url))[1],
       };
 
     case ITEM_TYPE.YOUTUBE_LINK:
@@ -91,10 +98,16 @@ const itemConfig = (type, raw) => {
         title: raw.title,
         url: raw.url,
         src: source['youtube'],
-        srcId: (raw.media && raw.media.type === 'youtu.be')
+        srcId: raw.domain === 'youtu.be'
           ? raw.url.split('/').pop()
-          : /watch\?v=([-_a-zA-Z0-9]*)/.exec(raw.url)[1]
+          : reYtId.exec(unescape(raw.url))[1],
       };
+
+    case ITEM_TYPE.DATPIFF:
+      return Object.assign(raw, {
+        type,
+        src: source['datpiff'],
+      });
   }
 };
 
@@ -107,6 +120,7 @@ class Item extends Immutable.Record({
   src: {},
   uploaded: false,
   createdAt: moment(),
+  releaseDate: moment(),
   srcId: 0,
 }) {
   
@@ -119,6 +133,7 @@ class Item extends Immutable.Record({
         ? type.uploaded === 'true'
         : !!type.uploaded;
       values.createdAt = moment(type.createdAt);
+      values.releaseDate = moment(type.releaseDate);
     } else {
       values = itemConfig(type, raw);
     }

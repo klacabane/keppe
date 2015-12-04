@@ -123,8 +123,7 @@ class Player {
             });
             scPlayer.on('time', time => {
               this._current.progress = this._formatMs(scPlayer.currentTime());
-              this._callbacks.time.forEach(fn => fn())
-              this._execCallbacks('state');
+              this._execCallbacks('time');
             });
             scPlayer.on('audio_error', err => {
               this._playing = false;
