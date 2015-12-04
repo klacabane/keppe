@@ -3,7 +3,6 @@
 import React from 'react';
 import $ from 'jquery';
 import Player from '../player/player.js';
-import { Item } from '../models/event.js';
 
 export default class AudioPlayer extends React.Component {
   constructor() {

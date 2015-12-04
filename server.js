@@ -18,7 +18,7 @@ mongo.connect(process.env.MONGODB+'/'+conf.db, (err, db) => {
 
   let router = express.Router();
 
-  ['calendar', 'feed']
+  ['calendar', 'feed', 'search']
     .forEach(ctrl => {
       require(`./routes/${ctrl}.js`)
         .setup(router, db);

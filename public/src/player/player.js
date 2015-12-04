@@ -1,6 +1,6 @@
 'use strict';
 
-import { ITEM_TYPE } from '../models/event.js';
+import { ITEM_TYPE } from '../models/item.js';
 
 SC.initialize({
   client_id: '',

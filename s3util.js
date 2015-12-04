@@ -19,20 +19,29 @@ module.exports = {
    * opts: Object{id, url, format}
    * returns Download
    */
-  addDl: opts => {
+  addDl(opts) {
     const dl = new Download(opts);
     _downloads.set(dl.id, dl);
     return dl;
   },
-  getDl: id => _downloads.get(id),
-  hasDl: id => _downloads.has(id),
-  removeDl: id => _downloads.delete(id),
+
+  getDl(id) {
+    return _downloads.get(id);
+  },
+
+  hasDl(id) {
+    return _downloads.has(id);
+  },
+
+  removeDl(id) {
+    return _downloads.delete(id);
+  },
 
   removeFile(key) {
     s3.deleteObject({Key: key}, err => {
       if (err) console.log(err);
     });
-  }
+  },
 };
 
 class Download {

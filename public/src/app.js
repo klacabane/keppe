@@ -10,6 +10,8 @@ import AudioPlayer from './components/audioplayer.js';
 
 $.fn.dropdown = require('semantic-ui-dropdown');
 $.fn.transition = require('semantic-ui-transition');
+$.fn.search = require('semantic-ui-search');
+$.fn.api = require('semantic-ui-api');
 
 class feed extends React.Component {
   render() {

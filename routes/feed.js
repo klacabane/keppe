@@ -6,8 +6,8 @@ const moment = require('moment');
 const request = require('request-promise');
 const s3util = require('../s3util.js');
 const search = require('../search.js');
-const Item = require('../public/src/models/event.js').Item;
-const ITEM_TYPE = require('../public/src/models/event.js').ITEM_TYPE;
+const Item = require('../public/src/models/item.js').Item;
+const ITEM_TYPE = require('../public/src/models/item.js').ITEM_TYPE;
 
 const channels = [
   {media: 'soundcloud', name: 'jazzcartier'},
@@ -44,7 +44,7 @@ exports.setup = (router, db) => {
       .toArray((err, docs) => {
         if (err) console.log(err);
 
-        res.json(docs);
+        res.json(docs.map(doc => Item.fromDb(doc)));
       });
   });
 
@@ -54,7 +54,7 @@ exports.setup = (router, db) => {
         if (doc.inserted) res.status(201);
         else res.status(200);
 
-        res.json(doc);
+        res.json(Item.fromDb(doc));
       })
       .catch(err => {
         console.log(err);
@@ -134,10 +134,11 @@ exports.setup = (router, db) => {
         .then(doc => {
           if (doc) return doc;
 
-          const values = merge(item.toObject(), {
-            createdAt: item.createdAt.toDate(),
-            releaseDate: item.releaseDate.toDate(),
-          });
+          // Store moment objects as native objects
+          const values = item
+            .set('createdAt', item.createdAt.toDate())
+            .set('releaseDate', item.releaseDate.toDate())
+            .toObject();
           delete values.id;
           return db.collection('items').insertOne(values);
         })

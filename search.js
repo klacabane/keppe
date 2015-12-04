@@ -3,8 +3,8 @@
 const request = require('request-promise');
 const cheerio = require('cheerio');
 const moment = require('moment');
-const Item = require('./public/src/models/event.js').Item;
-const ITEM_TYPE = require('./public/src/models/event.js').ITEM_TYPE;
+const Item = require('./public/src/models/item.js').Item;
+const ITEM_TYPE = require('./public/src/models/item.js').ITEM_TYPE;
 
 const scRequest = endpoint => {
   return request({
@@ -41,7 +41,7 @@ const search = {
   /*
    * returns []Item
    */
-  youtube: (term, max) => {
+  youtube(term, max) {
     return new Promise((resolve, reject) => {
       ytRequest('/search', term, max)
         .then(res => {
@@ -50,7 +50,7 @@ const search = {
               return raw.id.kind === 'youtube#video';
             })
             .map(raw => {
-              return new Item(ITEM_TYPE.YOUTUBE_LINK, {
+              return Item.fromApi(ITEM_TYPE.YOUTUBE_LINK, {
                 title: raw.snippet.title,
                 url: `http://youtube.com/watch?v=${raw.id.videoId}`,
               });
@@ -67,13 +67,13 @@ const search = {
    * id: string - YT video id
    * returns Item | null
    */
-  youtubeVideo: id => {
+  youtubeVideo(id) {
     return new Promise((resolve, reject) => {
       ytRequest('/videos', id)
       .then(res => {
         let item = null;
         if (res.items.length) {
-          item = new Item(ITEM_TYPE.YOUTUBE_LINK, {
+          item = Item.fromApi(ITEM_TYPE.YOUTUBE_LINK, {
             title: res.items[0].snippet.title,
             url: `http://youtube.com/watch?v=${id}`,
           });
@@ -91,13 +91,13 @@ const search = {
    * date: moment optional - Date overwriting the soundcloud creation date
    * returns Item | null
    */
-  scTrack: (url, date) => {
+  scTrack(url, date) {
     return new Promise((resolve, reject) => {
       scRequest(`/resolve?url=${url}`)
         .then(raw => {
           if (raw.kind === 'track' && raw.streamable) {
             if (date) raw.created_at = date.format('YYYY/MM/DD HH:mm:ss ZZ');
-            return new Item(ITEM_TYPE.SOUNDCLOUD, raw);
+            return Item.fromApi(ITEM_TYPE.SOUNDCLOUD, raw);
           }
           throw 'Soundcloud url is not streamable or isnt a track';
         })
@@ -112,13 +112,13 @@ const search = {
   /*
    * Returns the streamable tracks of a soundcloud user.
    */
-  scUser: user => {
+  scUser(user) {
     return new Promise((resolve, reject) => {
       scRequest(`/users/${user}/tracks`)
-        .then(items => {
-          return items
-            .filter(item => item.kind === 'track' && item.streamable)
-            .map(item => new Item(ITEM_TYPE.SOUNDCLOUD, item));
+        .then(result => {
+          return result
+            .filter(raw => raw.kind === 'track' && raw.streamable)
+            .map(raw => Item.fromApi(ITEM_TYPE.SOUNDCLOUD, raw));
         })
         .then(resolve)
         .catch(reject);
@@ -128,7 +128,7 @@ const search = {
   // search mixtapes:   GET http://www.datpiff.com/mixtapes-search?criteria=
   // prepare download:  GET http://www.datpiff.com/pop-mixtape-download.php?id=
   // actual download:   POST http://www.datpiff.com/download-mixtape body: id 
-  upcoming: () => {
+  upcoming() {
     const scrap = $ => {
       var items = [];
       $('#leftColumnWide')
@@ -150,7 +150,7 @@ const search = {
           };
           values.srcId = `${values.title} - ${values.artist}`;
 
-          items.push(new Item(ITEM_TYPE.DATPIFF, values));
+          items.push(Item.fromApi(ITEM_TYPE.DATPIFF, values));
         });
 
       return items;
@@ -183,7 +183,7 @@ const search = {
    * endpoint: one of ('hot','new','top')
    * returns []Item
    */
-  hhh: endpoint => {
+  hhh(endpoint) {
     return new Promise((resolve, reject) => {
       const isSupported = raw => {
         const sc = raw.data.domain === 'soundcloud.com' && raw.data.url.indexOf('/sets/') === -1;
@@ -194,7 +194,7 @@ const search = {
         if (raw.data.domain === 'soundcloud.com')
           return search.scTrack(raw.data.url, moment.unix(raw.data.created_utc));
         else 
-          return new Item(ITEM_TYPE.YOUTUBE_LINK, raw.data);
+          return Item.fromApi(ITEM_TYPE.YOUTUBE_LINK, raw.data);
       };
 
       const filterMedia = body => body.data.children.filter(isSupported);

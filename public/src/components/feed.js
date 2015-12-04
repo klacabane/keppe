@@ -7,7 +7,7 @@ import classNames from 'classnames';
 import Menu from './menu.js';
 import Player from '../player/player.js';
 import MusicFinder from './musicfinder.js';
-import { Item, ITEM_TYPE } from '../models/event.js';
+import { Item, ITEM_TYPE } from '../models/item.js';
 
 export default class Feed extends React.Component {
   constructor() {
@@ -34,9 +34,11 @@ export default class Feed extends React.Component {
   }
 
   _downloadReq(item) {
-    this.setState({
-      downloadingItems: this.state.downloadingItems.add(item.id),
-    });
+    if (!this.state.downloadingItems.has(item.id)) {
+      this.setState({
+        downloadingItems: this.state.downloadingItems.add(item.id),
+      });
+    }
 
     const checkIfDone = res => {
       console.log(res);
@@ -49,7 +51,7 @@ export default class Feed extends React.Component {
       }
 
       if (res.state !== 'done') {
-        setTimeout(this._downloadReq.bind(this, item), 1000);
+        setTimeout(this._downloadReq.bind(this, item), 1500);
       } else {
         // refresh the items to render the updated item
         this._getItems(() => {
@@ -110,18 +112,18 @@ export default class Feed extends React.Component {
 
   _rows() {
     const currentTrack = Player.current().item;
-    return this.state.items.map((item, i) => {
+    return this.state.items.map(item => {
       const isCurrentTrack = currentTrack && currentTrack.srcId === item.srcId;
       return <ItemRow 
-        key={i} 
+        key={item.id} 
         item={item} 
         isCurrentTrack={isCurrentTrack}
         isPlaying={isCurrentTrack && Player.playing()}
         isLoading={isCurrentTrack && Player.loading()}
         isDownloading={this.state.downloadingItems.has(item.id)}
         isRemoving={this.state.removingItems.has(item.id)}
-        onRemove={this.onItemRemove.bind(this)}
-        onDownload={this.onItemDownload.bind(this)}
+        onRemove={this.onItemRemove.bind(this, item)}
+        onDownload={this.onItemDownload.bind(this, item)}
       />
     });
   }
@@ -132,7 +134,7 @@ export default class Feed extends React.Component {
 
       <div className='eight wide column'>
         <MusicFinder
-          onCreateItem={this.onCreateItem.bind(this)} />
+          onSelect={this.onCreateItem.bind(this)} />
 
         <div id='feed-list' className='ui middle aligned very relaxed divided list'>
           {this._rows()}
@@ -171,7 +173,7 @@ class ItemRow extends React.Component {
             btn(
               classNames('ui button', {'loading': this.props.isDownloading}),
               'download icon',
-              this.props.onDownload.bind(null, this.props.item)));
+              this.props.onDownload));
         }
         break;
 
@@ -205,7 +207,7 @@ class ItemRow extends React.Component {
          'loading': this.props.isRemoving, 
          'disabled': this.props.isRemoving || this.props.isDownloading}),
       'remove icon',
-      this.props.onRemove.bind(null, this.props.item));
+      this.props.onRemove);
     return ret.concat(rmbtn);
   }
 

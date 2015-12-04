@@ -24,7 +24,9 @@
     "react-dom": "^0.14.0",
     "react-router": "^1.0.0-rc3",
     "request-promise": "^1.0.2",
+    "semantic-ui-api": "^2.1.6",
     "semantic-ui-dropdown": "^2.1.6",
+    "semantic-ui-search": "^2.1.6",
     "semantic-ui-transition": "^2.1.6"
   },
   "devDependencies": {
