@@ -164,6 +164,8 @@ const search = {
             artist: $elem.find('.artist')
               .text()
               .trim(),
+            img: $elem.find('img')
+              .attr('src'),
             releaseDate: moment(
               new Date($elem.find('.countdown').text())
             ),
@@ -177,6 +179,7 @@ const search = {
       return items;
     };
 
+    /*
     return new Promise((resolve, reject) => {
       require('fs').readFile('../datpiff/datpiff-upcoming.html', 'utf8', (err, data) => {
         const items = [];
@@ -184,14 +187,13 @@ const search = {
 
         resolve(scrap($));
       })
-    });
-    /*
+      });
+      */
     return request({
       uri: 'http://www.datpiff.com/upcoming',
       transform: cheerio.load,
     })
     .then(scrap)
-    */
   },
 
 
@@ -289,7 +291,7 @@ const search = {
           const promises = mixtape.tracks
             .map(raw => {
               return search.findMixtapeTrack(bucket, mixtape.srcId, raw)
-                .then(url => Item.fromApi(ITEM_TYPE.TRACK, merge(raw, { url: url, uploaded: true })))
+                .then(url => Item.fromApi(ITEM_TYPE.TRACK, merge(raw, { url: url })))
                 .catch(() => {
                   console.log('Couldnt find track ' + raw.title);
                   return Item.fromApi(ITEM_TYPE.TRACK, raw)

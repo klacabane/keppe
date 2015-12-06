@@ -6,4 +6,7 @@ export default {
   GET_ITEMS: 'get-items',
   ADD_DOWNLOAD: 'add-download',
   RM_DOWNLOAD: 'rm-download',
+
+  ADD_DAY_EVENT: 'add-day-event',
+  GET_MONTH: 'get-month',
 };

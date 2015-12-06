@@ -2,6 +2,7 @@
 
 const Immutable = require('immutable');
 const moment = require('moment');
+const merge = require('merge');
 
 const ITEM_TYPE = {
   UNKNOWN: 0,
@@ -97,7 +98,7 @@ class Item extends Immutable.Record({
 
       case ITEM_TYPE.MIXTAPE:
       case ITEM_TYPE.TRACK:
-        values = Object.assign(raw, {
+        values = merge(raw, {
           type,
         });
         break;

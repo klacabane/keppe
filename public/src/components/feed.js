@@ -9,7 +9,9 @@ import Player from '../player/player.js';
 import MusicFinder from './musicfinder.js';
 import { Link } from 'react-router';
 import { Item, ITEM_TYPE } from '../models/item.js';
+import { CalendarEvent } from '../models/event.js';
 import ItemStore from '../stores/item.js';
+import $ from 'jquery';
 
 export default class Feed extends React.Component {
   constructor() {
@@ -107,9 +109,9 @@ class ItemRow extends React.Component {
   }
 
   _buttons() {
+    let key = 0;
     const btn = (() => {
-      let i = 0;
-      return (btnclass, iconclass, click) => <button key={i++} className={btnclass} onClick={click}><i className={iconclass}></i></button>;
+      return (btnclass, iconclass, click) => <button key={key++} className={btnclass} onClick={click}><i className={iconclass}></i></button>;
     })();
 
     let ret = [];
@@ -134,14 +136,14 @@ class ItemRow extends React.Component {
             classNames('ui button', {
               'loading': this.props.isLoading,
               'disabled': this.props.isRemoving || 
-                (this.props.item.type === ITEM_TYPE.TRACK && !this.props.item.uploaded)
+                (this.props.item.type === ITEM_TYPE.TRACK && !this.props.item.url)
             }),
-            classNames(this.props.isPlaying ? 'pause' : 'play', 'icon'),
+           classNames(this.props.isPlaying ? 'pause' : 'play', 'icon'),
             this._toggle.bind(this)),
           btn(
             classNames('ui button', {
               'disabled': this.props.isRemoving || this.props.isDownloading ||
-                (this.props.item.type === ITEM_TYPE.TRACK && !this.props.item.uploaded),
+                (this.props.item.type === ITEM_TYPE.TRACK && !this.props.item.url),
             }),
             'plus icon',
             this._enqueue.bind(this)),
@@ -151,6 +153,7 @@ class ItemRow extends React.Component {
       case ITEM_TYPE.MIXTAPE:
         ret = [
           <Link 
+            key={key++}
             className={
               classNames('ui button', { 'disabled': !this.props.item.uploaded })
             }
@@ -159,7 +162,26 @@ class ItemRow extends React.Component {
           </Link>
         ];
         if (this.props.item.releaseDate.isAfter(moment())) {
-          ret.push(btn('ui button', 'calendar outline icon', () => {}));
+          ret.push(btn(
+             classNames('ui button', {
+              'loading': this.props.isDownloading,
+             }),
+             'calendar outline icon', 
+             () => {
+               $.ajax({
+                method: 'POST',
+                url: 'api/calendar/events',
+                contentType: 'application/json',
+                data: new CalendarEvent({
+                  title: this.props.item.title,
+                  starts: this.props.item.releaseDate,
+                  ends: moment(this.props.item.releaseDate).add(1, 'hours'),
+                }).stringify(),
+               })
+               .done(res => {
+                 console.log(new CalendarEvent(res).toJSON());
+               })
+             }));
         } else if (!this.props.item.uploaded) {
           ret.push(btn(
             classNames('ui button', {

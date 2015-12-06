@@ -27,13 +27,16 @@ const err_download_not_supported = 'The item type cant be downloaded.';
 
 exports.setup = (router, db) => {
   router.delete('/items/:id', (req, res) => {
+    // FIXME: should be reworked for mixtapes
     db.collection('items')
       .findOneAndUpdate(
         {_id: ObjectId.createFromHexString(req.params.id)}, 
         {$set: {removed: true}
       })
       .then(result => {
-        if (result.value.uploaded) s3util.removeFile(result.value.bucketKey);
+        if (result.value.uploaded && result.value.type !== ITEM_TYPE.MIXTAPE) {
+          s3util.removeFile(result.value.bucketKey);
+        }
         res.end();
       })
       .catch(err => {
@@ -44,7 +47,10 @@ exports.setup = (router, db) => {
 
   router.get('/items', (req, res) => {
     db.collection('items')
-      .find({removed: {$exists: false}})
+      .find({
+        removed: {$exists: false},
+        //mixtapes: {$size: 0},
+      })
       .sort({createdAt: -1})
       .toArray((err, docs) => {
         if (err) console.log(err);
@@ -87,10 +93,9 @@ exports.setup = (router, db) => {
     };
 
     const download = doc => {
-      _downloads.set(req.params.id, {status: 'processing'});
-      res.json({
-        status: 'processing',
-      });
+      const status = {status: 'processing'};
+      _downloads.set(req.params.id, status);
+      res.json(status);
 
       if (doc.type === ITEM_TYPE.MIXTAPE) {
         return search.mixtape(doc.url)
