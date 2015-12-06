@@ -6,7 +6,7 @@ import QuickEvent from './quickevent.js';
 import { CalendarEvent } from '../models/event.js';
 import Menu from './menu.js';
 import EventForm from './eventform.js';
-import HourList from './HourList.js';
+import HourList from './hourlist.js';
 import AudioPlayer from './audioplayer.js';
 import MonthStore from '../stores/month.js';
 
