@@ -3,12 +3,13 @@
 import React from 'react';
 import Immutable from 'immutable';
 import classNames from 'classnames';
+import moment from 'moment';
 import Menu from './menu.js';
 import Player from '../player/player.js';
 import MusicFinder from './musicfinder.js';
+import { Link } from 'react-router';
 import { Item, ITEM_TYPE } from '../models/item.js';
 import ItemStore from '../stores/item.js';
-import { dispatch } from '../dispatcher.js';
 
 export default class Feed extends React.Component {
   constructor() {
@@ -17,8 +18,6 @@ export default class Feed extends React.Component {
       items: ItemStore.items(),
       currentTrack: Player.current(),
     };
-    // Store subscriptions
-    this.subs = [];
   }
 
   onItemRemove(item) {
@@ -45,24 +44,22 @@ export default class Feed extends React.Component {
       });
     });
 
-    const subItem = ItemStore.addListener(() => {
+    this.sub = ItemStore.addListener(() => {
       this.setState({
         items: ItemStore.items(),
       });
-    })
-    
-    this.subs.push(subItem);
+    });
   }
 
   componentWillUnmount() {
     Player.removeCallbacks('Feed');
-    this.subs.forEach(sub => sub.remove());
+    this.sub.remove();
   }
 
   _rows() {
-    const currentTrack = this.state.currentTrack.item;
+    const currentItem = this.state.currentTrack.item;
     return this.state.items.map(item => {
-      const isCurrentTrack = currentTrack && currentTrack.srcId === item.srcId;
+      const isCurrentTrack = currentItem && currentItem.srcId === item.srcId;
       return <ItemRow 
         key={item.id} 
         item={item} 
@@ -105,6 +102,10 @@ class ItemRow extends React.Component {
     }
   }
 
+  _enqueue() {
+    Player.queue(this.props.item);
+  }
+
   _buttons() {
     const btn = (() => {
       let i = 0;
@@ -113,7 +114,7 @@ class ItemRow extends React.Component {
 
     let ret = [];
     switch (this.props.item.type) {
-      case ITEM_TYPE.YOUTUBE_LINK:
+      case ITEM_TYPE.YOUTUBE:
         ret = [
           btn('ui button', 'youtube play icon', () => window.open(this.props.item.url)),
         ];
@@ -127,27 +128,46 @@ class ItemRow extends React.Component {
         break;
 
       case ITEM_TYPE.SOUNDCLOUD:
-      case ITEM_TYPE.YOUTUBE_MUSIC:
+      case ITEM_TYPE.TRACK:
         ret = [
           btn(
             classNames('ui button', {
               'loading': this.props.isLoading,
               'disabled': this.props.isRemoving || 
-                (this.props.item.type === ITEM_TYPE.YOUTUBE_MUSIC && !this.props.item.uploaded)
+                (this.props.item.type === ITEM_TYPE.TRACK && !this.props.item.uploaded)
             }),
             classNames(this.props.isPlaying ? 'pause' : 'play', 'icon'),
             this._toggle.bind(this)),
           btn(
-            classNames('ui button', {'disabled': this.props.isRemoving || this.props.isDownloading}),
+            classNames('ui button', {
+              'disabled': this.props.isRemoving || this.props.isDownloading ||
+                (this.props.item.type === ITEM_TYPE.TRACK && !this.props.item.uploaded),
+            }),
             'plus icon',
-            Player.queue.bind(Player, this.props.item)),
+            this._enqueue.bind(this)),
         ];
         break;
 
-      case ITEM_TYPE.DATPIFF:
+      case ITEM_TYPE.MIXTAPE:
         ret = [
-          btn('ui button', 'calendar outline icon', () => {}),
+          <Link 
+            className={
+              classNames('ui button', { 'disabled': !this.props.item.uploaded })
+            }
+            to={'/music'}>
+            <i className='play icon'></i>
+          </Link>
         ];
+        if (this.props.item.releaseDate.isAfter(moment())) {
+          ret.push(btn('ui button', 'calendar outline icon', () => {}));
+        } else if (!this.props.item.uploaded) {
+          ret.push(btn(
+            classNames('ui button', {
+              'loading': this.props.isDownloading,
+            }), 
+            'download icon', 
+            this.props.onDownload));
+        }
         break;
     }
 
@@ -162,7 +182,7 @@ class ItemRow extends React.Component {
 
   render() {
     return <div className='item'>
-      <img className='ui mini image' src={this.props.item.src.img} />
+      <img className='ui mini image' src={this.props.item.img} />
       <div className='content item-content'>
         <div className='header'>{this.props.item.title}</div>
         <div className='description'>{this.props.item.artist}</div>

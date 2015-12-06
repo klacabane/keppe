@@ -6,24 +6,23 @@ const moment = require('moment');
 const ITEM_TYPE = {
   UNKNOWN: 0,
   SOUNDCLOUD: 1,
-  YOUTUBE_MUSIC: 2,
-  YOUTUBE_VIDEO: 3,
-  YOUTUBE_LINK: 4,
-  DATPIFF: 5,
+  YOUTUBE: 2,
+  TRACK: 3,
+  MIXTAPE: 4,
 }
 
 const source = {
-  'youtube': {
+  youtube: {
     name: 'YouTube',
     img: '/images/youtube-icon.png',
   },
-  'soundcloud': {
+  soundcloud: {
     name: 'SoundCloud',
     img: '/images/soundcloud-icon.png',
   },
-  'datpiff': {
-    name: 'DatPiff',
-    img: '/images/datpiff-icon.png',
+  mixtape: {
+    name: 'Mixtape',
+    img: '/images/mixtape-icon.png',
   },
 }
 
@@ -35,22 +34,29 @@ class Item extends Immutable.Record({
   artist: '',
   title: '',
   url: '',
-  src: {},
+  img: '',
   uploaded: false,
   createdAt: moment(),
   releaseDate: moment(),
   srcId: 0,
+  number: 0,
+  mixtapes: [],
+  tracks: [], 
 }) {
 
   constructor(values) {
     values.createdAt = moment(values.createdAt);
     values.releaseDate = moment(values.releaseDate);
     values.type = typeof values.type === 'string'
-      ? parseInt(values.type)
+      ? Number(values.type)
+      : values.type;
+    values.number = typeof values.number === 'string'
+      ? Number(values.number)
       : values.type;
     values.uploaded = typeof values.uploaded === 'string'
       ? values.uploaded === 'true'
-      : values.uploaded;
+      : !!values.uploaded;
+    values.img = values.img || '/images/mixtape-icon.png';
     super(values);
   }
 
@@ -68,44 +74,31 @@ class Item extends Immutable.Record({
       case ITEM_TYPE.SOUNDCLOUD:
         values = {
           type,
-          title: raw.title,
+          title: raw.title.replace(/&amp;/g, '&'),
           artist: raw.user.username,
           url: raw.uri,
-          src: source['soundcloud'],
+          img: '/images/soundcloud-icon.png',
           srcId: raw.id,
           createdAt: moment(raw.created_at, 'YYYY/MM/DD HH:mm:ss ZZ'),
         };
         break;
 
-      case ITEM_TYPE.YOUTUBE_MUSIC:
-        values = {
-          type,
-          title: '',
-          artist: '',
-          url: raw.url,
-          src: source['youtube'],
-          srcId: (raw.domain === 'youtu.be')
-            ? raw.url.split('/').pop()
-            : reYtId.exec(unescape(raw.url))[1],
-        };
-        break;
-
-      case ITEM_TYPE.YOUTUBE_LINK:
+      case ITEM_TYPE.YOUTUBE:
         values = {
           type,
           title: raw.title,
           url: raw.url,
-          src: source['youtube'],
+          img: '/images/youtube-icon.png',
           srcId: raw.domain === 'youtu.be'
             ? raw.url.split('/').pop()
             : reYtId.exec(unescape(raw.url))[1],
         };
         break;
 
-      case ITEM_TYPE.DATPIFF:
+      case ITEM_TYPE.MIXTAPE:
+      case ITEM_TYPE.TRACK:
         values = Object.assign(raw, {
           type,
-          src: source['datpiff'],
         });
         break;
     }

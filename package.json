@@ -19,6 +19,7 @@
     "history": "^1.13.0",
     "immutable": "^3.7.5",
     "jquery": "^2.1.4",
+    "merge": "^1.2.0",
     "moment": "^2.10.6",
     "mongodb": "^2.0.47",
     "react": "^0.14.0",
@@ -28,7 +29,8 @@
     "semantic-ui-api": "^2.1.6",
     "semantic-ui-dropdown": "^2.1.6",
     "semantic-ui-search": "^2.1.6",
-    "semantic-ui-transition": "^2.1.6"
+    "semantic-ui-transition": "^2.1.6",
+    "unzip": "^0.1.11"
   },
   "devDependencies": {
     "babel-core": "^5.8.29",

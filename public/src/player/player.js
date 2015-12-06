@@ -155,6 +155,7 @@ class Player {
         break;
 
       case ITEM_TYPE.YOUTUBE_MUSIC:
+      case ITEM_TYPE.TRACK:
         this._player = this._htmlPlayer;
         this._player.src = item.url;
         this._player.volume = this._volume;

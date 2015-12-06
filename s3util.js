@@ -1,9 +1,13 @@
 'use strict';
 
+const unzip = require('unzip');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+const merge = require('merge');
 const spawn = require('child_process').spawn;
+const request = require('request-promise');
+const ITEM_TYPE = require('./public/src/models/item.js').ITEM_TYPE;
 const AWS = require('aws-sdk');
 AWS.config.credentials = {
   accessKeyId: process.env.AWSAccessKey,
@@ -12,31 +16,8 @@ AWS.config.credentials = {
 AWS.config.region = 'eu-central-1';
 
 const s3 = new AWS.S3({params: {Bucket: 'keppe'}});
-const _downloads = new Map();
 
-module.exports = {
-  /*
-   * opts: Object{id, url, format}
-   * returns Download
-   */
-  addDl(opts) {
-    const dl = new Download(opts);
-    _downloads.set(dl.id, dl);
-    return dl;
-  },
-
-  getDl(id) {
-    return _downloads.get(id);
-  },
-
-  hasDl(id) {
-    return _downloads.has(id);
-  },
-
-  removeDl(id) {
-    return _downloads.delete(id);
-  },
-
+const s3util = {
   removeFile(key) {
     s3.deleteObject({Key: key}, err => {
       if (err) console.log(err);
@@ -44,101 +25,188 @@ module.exports = {
   },
 };
 
-class Download {
-  constructor(opts) {
-    this.id = opts.id;
-    this.opts = opts;
-    this.err = null;
-    this.localpath = '';
-    this.state = 'init';
-    this.progress = 0;
+class Pending {
+  constructor(conf) {
+    this.state = {
+      err: null,
+      title: conf.title || '',
+      status: 'init',
+      progress: 0,
+      children: [],
+    };
+  }
 
-    // S3 config, set once uploaded
-    this.bucketKey = '';
-    this.location = '';
+  toJSON() {
+    return {
+      err: this.state.err,
+      status: this.state.status,
+      progress: this.state.progress,
+    };
+  }
+}
+
+class Download extends Pending {
+  constructor(conf) {
+    super(conf);
+    this.url = conf.url;
+    this.format = conf.format || 'mp3';
   }
 
   start() {
+    let localpath;
+
     return new Promise((resolve, reject) => {
       const child = spawn('youtube-dl', [
-        '-x', '--audio-format', this.opts.format, '-o',
-        `${os.tmpdir()}/%(title)s.%(ext)s`, this.opts.url
+        '-x', '--audio-format', this.format, '-o',
+        `${os.tmpdir()}/%(title)s.%(ext)s`, this.url
       ]);
+
       console.log('downloading');
 
       child.stdout.on('data', chunk => {
         const match = String(chunk).match(/\[download\]\s*(\d*)(.\d*)?%/);
         if (match) {
-          this.state = 'downloading';
-          this.progress = parseInt(match[1]);
+          this.state.status = 'downloading';
+          this.state.progress = parseInt(match[1]);
         }
 
-        if (this.progress === 100 && this.state !== 'converting') {
-          this.state = 'converting';
-          this.progress = 0;
+        if (this.state.progress === 100 && this.state.status !== 'converting') {
+          this.state.status = 'converting';
+          this.state.progress = 0;
         }
 
-        if (!this.localpath) {
+        if (!localpath) {
           const dst = String(chunk).match(/Destination: (.*\.mp3)/);
           if (dst) {
-            this.localpath = dst[1];
+            localpath = dst[1];
           }
         }
       });
 
       child.stderr.on('data', msg => {
-        this.err = new Error(msg);
+        this.state.err = new Error(msg);
       });
 
       child.on('close', () => {
-        if (this.err) {
-          this.state = 'aborted';
-          return reject(this.err);
-        }
-        resolve(this);
-      });
-    });
-  }
-
-  uploadLocal() {
-    const bucketKey = 'music/' + path.basename(this.localpath);
-    const upload = s3.upload({
-      ACL: 'public-read',
-      Body: fs.createReadStream(this.localpath),
-      Key: bucketKey,
-    });
-    upload.on('httpUploadProgress', progress => {
-      this.progress = progress.total
-        ? (progress.loaded / progress.total) * 100
-        : 0;
-    });
-    console.log('uploading');
-    this.state = 'uploading';
-
-    return new Promise((resolve, reject) => {
-      upload.send((err, data) => {
-        if (err) {
-          this.state = 'aborted';
-          return reject(err);
+        if (this.state.err) {
+          this.state.status = 'aborted';
+          return reject(this.state.err);
         }
 
-        fs.unlink(this.localpath, err => {
-          if (err) console.log(`Error removing file ${this.localpath}:\n${err}`)
+        const upload = new Upload({
+          filename: path.basename(localpath),
+          body: fs.createReadStream(localpath)
+            .on('close', () => {
+              fs.unlink(localpath, err => {
+                if (err) console.log('Error removing ' + localpath + '\n' + err)
+              })
+            }),
         });
-        this.state = 'done';
-        this.bucketKey = bucketKey;
-        this.location = data.Location;
-        resolve(this);
+
+        resolve(upload.start());
       });
     });
-  }
-
-  toJSON() {
-    return {
-      err: this.err,
-      location: this.location,
-      state: this.state,
-      progress: this.progress,
-    };
   }
 }
+
+class Upload extends Pending {
+  constructor(conf) {
+    super(merge(conf, {
+      title: path.basename(conf.filename, path.extname(conf.filename)).trim()
+    }));
+
+    this.filename = conf.filename;
+    this.body = conf.body;
+    this.bucketKey = '';
+    this.location = '';
+  }
+
+  start() {
+    return new Promise(resolve => {
+      const bucketKey = 'music/' + this.filename;
+      const upload = s3.upload({
+        ACL: 'public-read',
+        Body: this.body,
+        Key: bucketKey,
+      });
+
+      console.log('uploading ' + this.state.filename);
+
+      this.state.status = 'uploading';
+
+      upload.on('httpUploadProgress', progress => {
+        this.state.progress = progress.total
+          ? Math.round((progress.loaded / progress.total) * 100)
+          : 0;
+      });
+
+      upload.send((err, data) => {
+        if (err) {
+          this.state.err = err;
+          this.state.status = 'aborted';
+          return reject(err);
+        }
+        console.log('done uploading ' + this.state.title);
+
+        this.state.status = 'done';
+        this.state.bucketKey = bucketKey;
+        this.state.location = data.Location;
+        resolve(this.state);
+      });
+    });
+  }
+}
+
+/*
+class MixtapeDownload extends Pending {
+  constructor(conf) {
+    super(conf);
+  }
+
+  start() {
+    return new Promise((resolve, reject) => {
+      let i = 0;
+      let completed = 0;
+      const uploads = [];
+
+      fs.createReadStream('../datpiff/mixtape.zip')
+        .pipe(unzip.Parse())
+        .on('entry', entry => {
+
+          if (entry.type === 'File' && path.extname(entry.path) === '.mp3' && i++ < 5) {
+            const upload = new Upload({
+              title: path.basename(entry.path),
+              filename: entry.path,
+              body: entry,
+              type: 'track',
+            })
+            .start()
+            .then(result => {
+              completed++;
+              this.state.progress = (completed / uploads.length) * 100;
+              return result;
+            });
+
+            uploads.push(upload)
+          } else {
+            entry.autodrain();
+          }
+        })
+        .on('close', () => {
+          Promise.all(uploads)
+            .then(results => {
+              this.state.children = results;
+              resolve(this.state);
+            })
+            .catch(reject);
+        })
+        .on('error', reject);
+    });
+  }
+}
+*/
+
+module.exports = {
+  s3util,
+  Download,
+};

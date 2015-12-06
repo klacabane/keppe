@@ -3,8 +3,10 @@
 const ObjectId = require('mongodb').ObjectId;
 const path = require('path');
 const moment = require('moment');
+const merge = require('merge');
 const request = require('request-promise');
-const s3util = require('../s3util.js');
+const s3util = require('../s3util.js').s3util;
+const Download = require('../s3util.js').Download;
 const search = require('../search.js');
 const Item = require('../public/src/models/item.js').Item;
 const ITEM_TYPE = require('../public/src/models/item.js').ITEM_TYPE;
@@ -18,7 +20,10 @@ const channels = [
   {media: 'soundcloud', name: 'villainpark'},
 ];
 
+const _downloads = new Map();
+
 const err_already_uploaded = 'Item is already uploaded.';
+const err_download_not_supported = 'The item type cant be downloaded.';
 
 exports.setup = (router, db) => {
   router.delete('/items/:id', (req, res) => {
@@ -63,93 +68,133 @@ exports.setup = (router, db) => {
   });
 
   router.get('/items/:id/download', (req, res) => {
-    if (s3util.hasDl(req.params.id)) {
-      return res.json(s3util.getDl(req.params.id));
+    if (_downloads.has(req.params.id)) {
+      return res.json(_downloads.get(req.params.id));
     }
 
     const validate = doc => {
       if (doc.uploaded) {
         res.json({
-          state: 'done',
-          location: doc.url,
-          progress: 100,
+          status: 'done',
         });
-
         throw err_already_uploaded;
+      } else if (doc.type !== ITEM_TYPE.MIXTAPE &&
+             doc.type !== ITEM_TYPE.YOUTUBE) {
+        res.status(500).end();
+        throw err_download_not_supported;
       }
       return doc;
     };
 
     const download = doc => {
-      const dl = s3util.addDl({
-        id: doc._id.toHexString(),
-        url: doc.url,
-        format: 'mp3',
+      _downloads.set(req.params.id, {status: 'processing'});
+      res.json({
+        status: 'processing',
       });
 
-      res.json(dl);
-      return dl.start();
+      if (doc.type === ITEM_TYPE.MIXTAPE) {
+        return search.mixtape(doc.url)
+          .then(item => updateMixtape(doc._id, item));
+      } else {
+        const dl = new Download({
+          id: req.params.id,
+          url: doc.url,
+        });
+        return dl.start()
+          .then(result => updateTrackFromDl(doc._id, result));
+      }
     };
-
-    const update = dl => {
-      return db.collection('items')
-        .findOneAndUpdate(
-          {_id: ObjectId.createFromHexString(dl.id)},
-          {$set: {
-            url: dl.location, 
-            bucketKey: dl.bucketKey,
-            uploaded: true,
-            title: path.basename(dl.localpath, path.extname(dl.localpath)).trim(),
-            type: ITEM_TYPE.YOUTUBE_MUSIC,
-          }}
-        );
-    }
 
     db.collection('items')
       .findOne({_id: ObjectId.createFromHexString(req.params.id)})
       .then(validate)
       .then(download)
-      .then(dl => dl.uploadLocal())
-      .then(update)
-      .then(result => {
-        s3util.removeDl(result.value._id.toHexString());
+      .then(() => {
+        _downloads.delete(req.params.id);
         console.log('done');
       })
       .catch(err => {
+        _downloads.set(req.params.id, {status: 'aborted', err: err});
         console.log(err);
       });
   });
 
+  const updateTrackFromDl = (id, result) => {
+    return db.collection('items')
+      .updateOne(
+        {_id: id},
+        {$set: {
+          title: result.title,
+          url: result.location, 
+          bucketKey: result.bucketKey,
+          uploaded: true,
+          type: ITEM_TYPE.TRACK,
+          img: undefined,
+        }}
+      );
+  };
+
+  /**
+   * id ObjectId - mixtape item to update
+   * item Item - mixtape item with updated values
+   * return object - updated document
+   */
+  const updateMixtape = (id, item) => {
+    // insert item.tracks
+    // update mixtape item
+    const tracks = item.tracks
+      .map(track => {
+        const obj = track
+          .set('createdAt', new Date())
+          .set('releaseDate', new Date())
+          .toObject();
+        obj.mixtapes = [id];
+        delete obj.id;
+        return obj;
+      });
+
+    return db.collection('items')
+      .insertMany(tracks)
+      .then(res => {
+        return db.collection('items')
+          .updateOne(
+            {_id: id},
+            {$set: {
+              uploaded: true,
+              tracks: res.insertedIds,
+              img: item.img,
+              title: item.title,
+              artist: item.artist,
+              srcId: item.srcId,
+            }}
+          );
+      });
+  };
+
   const flatten = arr => [].concat.apply([], arr);
-  const merge = (obj1, obj2) => Object.assign({}, obj1, obj2);
 
   /*
    * item: Item
    * returns object - {dbAttrs, inserted}
    */
   const insertIfNotExists = item => {
-    return new Promise((resolve, reject) => {
-      db.collection('items')
-        .findOne({srcId: item.srcId})
-        .then(doc => {
-          if (doc) return doc;
+    return db.collection('items')
+      .findOne({srcId: item.srcId})
+      .then(doc => {
+        if (doc) return doc;
 
-          // Store moment objects as native objects
-          const values = item
-            .set('createdAt', item.createdAt.toDate())
-            .set('releaseDate', item.releaseDate.toDate())
-            .toObject();
-          delete values.id;
-          return db.collection('items').insertOne(values);
-        })
-        .then(doc => {
-          if (doc._id) return resolve(doc);
-          resolve(
-            merge(doc.ops[0], {inserted: true})
-          );
-        })
-        .catch(reject);
-    });
+        // Store moment objects as native objects
+        const values = item
+          .set('createdAt', item.createdAt.toDate())
+          .set('releaseDate', item.releaseDate.toDate())
+          .toObject();
+        delete values.id;
+        return db.collection('items').insertOne(values);
+      })
+      .then(doc => {
+        if (doc._id) return doc;
+        return merge(doc.ops[0], {inserted: true});
+      });
   };
 
   const cron = () => {
@@ -189,12 +234,8 @@ exports.setup = (router, db) => {
    * returns []Item
    */
   const scTracks = accounts => {
-    return new Promise((resolve, reject) => {
-      Promise.all(accounts.map(search.scUser))
-        .then(flatten)
-        .then(resolve)
-        .catch(reject);
-    });
+    return Promise.all(accounts.map(search.scUser))
+      .then(flatten);
   };
 
   if (process.argv.length > 2) {

@@ -43,7 +43,7 @@ class ItemStore extends Store {
         return;
       }
 
-      if (res.state !== 'done') {
+      if (res.status !== 'done') {
         setTimeout(this._downloadReq.bind(this, id), 1500);
       } else {
         rmDl();
