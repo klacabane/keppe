@@ -30,15 +30,6 @@ class CalendarEvent extends Immutable.Record({
 
     super(values || {});
   }
-
-  stringify() {
-    return JSON.stringify({
-      starts: this.starts.toDate(),
-      ends: this.ends.toDate(),
-      title: this.title,
-      repeat: this.repeat,
-    });
-  }
 }
 
 module.exports = {

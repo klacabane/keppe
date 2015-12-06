@@ -19,12 +19,12 @@ class MonthStore extends Store {
     return _month;
   }
 
-  addEvent(event) {
+  addEvent(ev) {
     $.ajax({
       method: 'POST',
       url: 'api/calendar/events',
-      contentType: 'application/json',
-      data: event.stringify(),
+      contenType: 'application/json',
+      data: ev.toJSON(),
     }).done((res) => {
       Dispatcher.dispatch({
         action: ACTIONS.ADD_EVENT,

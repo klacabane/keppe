@@ -11,6 +11,7 @@ import { Link } from 'react-router';
 import { Item, ITEM_TYPE } from '../models/item.js';
 import { CalendarEvent } from '../models/event.js';
 import ItemStore from '../stores/item.js';
+import MonthStore from '../stores/month.js';
 import $ from 'jquery';
 
 export default class Feed extends React.Component {
@@ -168,19 +169,11 @@ class ItemRow extends React.Component {
              }),
              'calendar outline icon', 
              () => {
-               $.ajax({
-                method: 'POST',
-                url: 'api/calendar/events',
-                contentType: 'application/json',
-                data: new CalendarEvent({
+               MonthStore.addEvent(new CalendarEvent({
                   title: this.props.item.title,
                   starts: this.props.item.releaseDate,
                   ends: moment(this.props.item.releaseDate).add(1, 'hours'),
-                }).stringify(),
-               })
-               .done(res => {
-                 console.log(new CalendarEvent(res).toJSON());
-               })
+                }));
              }));
         } else if (!this.props.item.uploaded) {
           ret.push(btn(

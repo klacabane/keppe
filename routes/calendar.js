@@ -24,8 +24,8 @@ exports.setup = (router, db) => {
   
   router.post('/calendar/events', (req, res) => {
     const ev = {
-      starts: moment(req.body.starts).toDate(),
-      ends: moment(req.body.ends).toDate(),
+      starts: new Date(req.body.starts),
+      ends: new Date(req.body.ends),
       title: req.body.title,
       repeat: req.body.repeat,
     };

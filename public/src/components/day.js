@@ -30,9 +30,9 @@ export default class CalendarApp extends React.Component {
       const month = MonthStore.month();
       this.setState({
         month,
-        day: this.state.day === null 
+        day: !this.state.day 
           ? month.days.find(day => day && day.date.isSame(moment(), 'day'))
-          : this.state.day,
+          : month.days.find(day => day && day.date.isSame(this.state.day.date, 'day')) || this.state.day,
       });
     });
   }

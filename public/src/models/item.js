@@ -53,7 +53,7 @@ class Item extends Immutable.Record({
       : values.type;
     values.number = typeof values.number === 'string'
       ? Number(values.number)
-      : values.type;
+      : values.number;
     values.uploaded = typeof values.uploaded === 'string'
       ? values.uploaded === 'true'
       : !!values.uploaded;

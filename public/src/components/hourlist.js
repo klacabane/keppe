@@ -19,12 +19,6 @@ export default class HourList extends React.Component {
     clearInterval(this.interval);
   }
 
-  shouldComponentUpdate(nextProps, nextState) {
-    return nextProps.events.length !== this.props.events.length 
-      || nextState.hours !== this.state.hours 
-      || nextState.minutes !== this.state.minutes;
-  }
-
   _getMarker() {
     const style = {
       marginTop: (this.state.hours * 46) + (this.state.minutes * (46 / 60))

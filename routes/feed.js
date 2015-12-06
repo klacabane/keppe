@@ -45,6 +45,31 @@ exports.setup = (router, db) => {
       });
   });
 
+  const err_doc_not_found = 'Document not found.';
+  router.get('/items/:id', (req, res) => {
+    db.collection('items')
+      .findOne({_id: ObjectId.createFromHexString(req.params.id)})
+      .then(raw => {
+        if (!raw) throw err_doc_not_found;
+        if (!raw.tracks.length) return Item.fromDb(raw);
+
+        return db.collection('items')
+          .find({mixtapes: raw._id})
+          .then(docs => {
+            const tracks = docs.map(doc => Item.fromDb(doc));
+            return Item.fromDb(merge(raw, {tracks: tracks}));
+          });
+      })
+      .then(item => {
+        res.json(item);
+      })
+      .catch(err => {
+        if (err === err_doc_not_found) res.status(404);
+        else res.status(500);
+        res.end();
+      });
+  });
+
   router.get('/items', (req, res) => {
     db.collection('items')
       .find({
