@@ -20,10 +20,13 @@ const channels = [
   {media: 'soundcloud', name: 'villainpark'},
 ];
 
-const _downloads = new Map();
-
 const err_already_uploaded = 'Item is already uploaded.';
 const err_download_not_supported = 'The item type cant be downloaded.';
+const err_doc_not_found = 'Document not found.';
+
+const flatten = arr => [].concat.apply([], arr);
+
+const _downloads = new Map();
 
 exports.setup = (router, db) => {
   router.delete('/items/:id', (req, res) => {
@@ -45,7 +48,38 @@ exports.setup = (router, db) => {
       });
   });
 
-  const err_doc_not_found = 'Document not found.';
+  router.get('/items/feed', (req, res) => {
+    db.collection('items')
+      .find({
+        removed: {$exists: false},
+        //mixtapes: {$size: 0},
+      })
+      .sort({createdAt: -1})
+      .toArray()
+      .then(docs => docs.map(Item.fromDb))
+      .then(items => res.json(items))
+      .catch(err => {
+        res.status(500).end();
+        console.log(err.stack);
+      });
+  });
+
+  router.get('/items/mixtapes', (req, res) => {
+    db.collection('items')
+      .find({
+        removed: {$exists: false},
+        type: ITEM_TYPE.MIXTAPE,
+      })
+      .sort({createdAt: -1})
+      .toArray()
+      .then(docs => Promise.all(docs.map(populateMixtape)))
+      .then(items => res.json(items))
+      .catch(err => {
+        res.status(500).end();
+        console.log(err.stack)
+      });
+  });
+
   router.get('/items/:id', (req, res) => {
     db.collection('items')
       .findOne({_id: ObjectId.createFromHexString(req.params.id)})
@@ -53,48 +87,13 @@ exports.setup = (router, db) => {
         if (!raw) throw err_doc_not_found;
         if (!raw.tracks.length) return Item.fromDb(raw);
 
-        return db.collection('items')
-          .find({mixtapes: raw._id})
-          .then(docs => {
-            const tracks = docs.map(doc => Item.fromDb(doc));
-            return Item.fromDb(merge(raw, {tracks: tracks}));
-          });
+        return populateMixtape(raw);
       })
-      .then(item => {
-        res.json(item);
-      })
+      .then(item => res.json(item))
       .catch(err => {
         if (err === err_doc_not_found) res.status(404);
         else res.status(500);
         res.end();
-      });
-  });
-
-  router.get('/items', (req, res) => {
-    db.collection('items')
-      .find({
-        removed: {$exists: false},
-        //mixtapes: {$size: 0},
-      })
-      .sort({createdAt: -1})
-      .toArray((err, docs) => {
-        if (err) console.log(err);
-
-        res.json(docs.map(doc => Item.fromDb(doc)));
-      });
-  });
-
-  router.post('/items', (req, res) => {
-    insertIfNotExists(new Item(req.body))
-      .then(doc => {
-        if (doc.inserted) res.status(201);
-        else res.status(200);
-
-        res.json(Item.fromDb(doc));
-      })
-      .catch(err => {
-        console.log(err);
-        res.status(500).end();
       });
   });
 
@@ -145,9 +144,35 @@ exports.setup = (router, db) => {
       })
       .catch(err => {
         _downloads.set(req.params.id, {status: 'aborted', err: err});
-        console.log(err);
+        console.log(err.stack);
       });
   });
+
+  router.post('/items', (req, res) => {
+    insertIfNotExists(new Item(req.body))
+      .then(doc => {
+        if (doc.inserted) res.status(201);
+        else res.status(200);
+
+        res.json(Item.fromDb(doc));
+      })
+      .catch(err => {
+        console.log(err);
+        res.status(500).end();
+      });
+  });
+
+  const populateMixtape = doc => {
+    return db.collection('items')
+      .find({mixtapes: doc._id})
+      .sort({number: 1})
+      .toArray()
+      .then(docs => {
+        return Item.fromDb(merge(doc, {
+          tracks: docs.map(Item.fromDb),
+        }));
+      });
+  };
 
   const updateTrackFromDl = (id, result) => {
     return db.collection('items')
@@ -201,7 +226,6 @@ exports.setup = (router, db) => {
       });
   };
 
-  const flatten = arr => [].concat.apply([], arr);
 
   /*
    * item: Item

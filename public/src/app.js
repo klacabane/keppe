@@ -24,8 +24,8 @@ class feed extends React.Component {
 
 render((
   <Router history={createHistory()}>
-    <Route path='/' component={feed}></Route>
-    <Route path='/music' component={MusicLibrary}></Route>
+    <Route path='/' component={MusicLibrary}></Route>
+    <Route path='/music' component={feed}></Route>
     <Route path='/calendar' component={CalendarApp}></Route>
   </Router>
 ), document.getElementById('container'));

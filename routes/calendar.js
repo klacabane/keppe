@@ -47,29 +47,25 @@ exports.setup = (router, db) => {
         ends: moment([year, month, daynum+1]).toDate(),
       };
 
-      return new Promise((resolve, reject) => {
-        db.collection('events')
-          .find({
-            'starts': {
-              '$gte': range.starts, 
-              '$lt': range.ends,
-            }
-          })
-          .toArray((err, docs) => {
-            if (err) return reject(err);
-
-            const day = {
-              date: range.starts,
-              events: docs.concat(
-                periodicEvents
-                  .filter(ev => ev.starts.isSame(range.starts, 'days'))
-                  .map(ev => ev.set('starts', ev.get('starts').toDate()))
-              ),
-            };
-
-            resolve(day);
-          });
-      });
+      return db.collection('events')
+        .find({
+          'starts': {
+            '$gte': range.starts, 
+            '$lt': range.ends,
+          }
+        })
+        .toArray()
+        .then(docs => {
+          const day = {
+            date: range.starts,
+            events: docs.concat(
+              periodicEvents
+                .filter(ev => ev.starts.isSame(range.starts, 'days'))
+                .map(ev => ev.set('starts', ev.get('starts').toDate()))
+            ),
+          };
+          return day;
+        });
     };
     const len = moment([year, month]).daysInMonth(); 
     const promises = [];
@@ -81,48 +77,45 @@ exports.setup = (router, db) => {
   };
 
   const getPeriodicEvents = (year, month) => {
-    return new Promise((resolve, reject) => {
-      const firstOfMonth = moment([year, month]);
-      const limit = moment(firstOfMonth).add(1, 'months');
-      const periodicEvents = [];
-      const addOccurrences = doc => {
-        const ev = new CalendarEvent(doc);
-        let d = moment(ev.starts);
-        let add;
-        switch (doc.repeat) {
-          case REPEAT.DAY:
-            add = d => d.add(1, 'days'); break;
-          case REPEAT.WEEK:
-            add = d => d.add(7, 'days'); break;
-          case REPEAT.MONTH:
-            add = d => d.add(1, 'months'); break;
-          case REPEAT.YEAR:
-            add = d => d.add(1, 'years'); break;
+    const firstOfMonth = moment([year, month]);
+    const limit = moment(firstOfMonth).add(1, 'months');
+    const periodicEvents = [];
+    const addOccurrences = doc => {
+      const ev = new CalendarEvent(doc);
+      let d = moment(ev.starts);
+      let add;
+      switch (doc.repeat) {
+        case REPEAT.DAY:
+          add = d => d.add(1, 'days'); break;
+        case REPEAT.WEEK:
+          add = d => d.add(7, 'days'); break;
+        case REPEAT.MONTH:
+          add = d => d.add(1, 'months'); break;
+        case REPEAT.YEAR:
+          add = d => d.add(1, 'years'); break;
+      }
+
+      while (d.isBefore(limit)) {
+        if (!d.isSame(ev.starts) && d.isSame(firstOfMonth, 'months')) {
+          periodicEvents.push(
+            ev.set('starts', moment(d))
+          );
         }
 
-        while (d.isBefore(limit)) {
-          if (!d.isSame(ev.starts) && d.isSame(firstOfMonth, 'months')) {
-            periodicEvents.push(
-              ev.set('starts', moment(d))
-            );
-          }
+        add(d);
+      }
+    };
 
-          add(d);
-        }
-      };
-
-      db.collection('events')
-        .find({
-          'repeat': {$gt: 0},
-          'starts': {$lt: limit.toDate()},
-        })
-        .toArray((err, docs) => {
-          if (err) return reject(err);
-          docs.forEach(addOccurrences);
-          resolve(periodicEvents);
-        });
-    });
-
+    return db.collection('events')
+      .find({
+        'repeat': {$gt: 0},
+        'starts': {$lt: limit.toDate()},
+      })
+      .toArray()
+      .then(docs => {
+        docs.forEach(addOccurrences);
+        return periodicEvents;
+      });
   };
 
   const addDelta = (days) => {

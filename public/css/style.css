@@ -43,7 +43,7 @@
   border: 1px solid #00b5ad !important;
 }
 
-#hours-list, #feed-list {
+#hours-list, #feed-list, #mixtapes-list {
   margin-top: 100px;
   margin-bottom: 100px;
 }
@@ -127,3 +127,24 @@
 
 .audioplayer > .grid {width: 100%;}
 
+.mixtape.item {cursor: pointer;}
+.mixtape.item img {max-width: 100%;}
+
+#mixtape-track-list > .column {
+  padding: 0;
+}
+
+.mixtape-track {
+  cursor: pointer; /*color*/
+  padding: 10px;
+}
+
+.mixtape-track:hover {
+  background: red;
+}
+
+.mixtape-track .title {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}

@@ -1,23 +1,29 @@
 'use strict';
 
 import $ from 'jquery';
+import merge from 'merge';
 import { Store } from 'flux/utils';
 import Dispatcher from '../dispatcher.js';
 import { Item, ITEM_TYPE } from '../models/item.js';
 import ACTIONS from '../constants.js';
 
 let _items = [];
+let _mixtapes = [];
 let _downloadingItems = new Set();
 let _removingItems = new Set();
 
 class ItemStore extends Store {
   constructor() {
     super(Dispatcher);
-    this.getItems();
+    this.getFeed();
   }
 
   items() {
     return _items;
+  }
+
+  mixtapes() {
+    return _mixtapes;
   }
 
   isDownloading(id) {
@@ -47,7 +53,7 @@ class ItemStore extends Store {
         setTimeout(this._downloadReq.bind(this, id), 1500);
       } else {
         rmDl();
-        this.getItems();
+        this.getFeed();
       }
     };
 
@@ -81,6 +87,18 @@ class ItemStore extends Store {
     });
   }
 
+  getItem(id) {
+    return $.ajax({
+      method: 'GET',
+      url: `api/items/${id}`,
+    })
+    .then(res => {
+      return new Item(merge(res, {
+        tracks: res.tracks.map(raw => new Item(raw)),
+      }));
+    });
+  }
+
   removeItem(item) {
     Dispatcher.dispatch({
       action: ACTIONS.RM_ITEM,
@@ -91,23 +109,44 @@ class ItemStore extends Store {
       method: 'DELETE',
       url: `api/items/${item.id}`,
     }).done(() => {
-      this.getItems(() => {
-        _removingItems.delete(item.id);
-      });
+      this.getFeed()
+        .then(() => {
+          _removingItems.delete(item.id);
+        });
     });
   }
 
-  getItems(done) {
-    $.ajax({
+  getFeed() {
+    return $.ajax({
       method: 'GET',
-      url: 'api/items',
+      url: 'api/items/feed',
     })
-    .done(res => {
+    .then(res => {
       Dispatcher.dispatch({
         action: ACTIONS.GET_ITEMS,
         items: res.map(raw => new Item(raw)),
       });
-      done && done();
+    });
+  }
+
+  getMixtapes() {
+    $.ajax({
+      method: 'GET',
+      url: `api/items/mixtapes`,
+    })
+    .then(res => {
+      const items = res.map(mt => {
+        return new Item(merge(mt, {
+          tracks: mt.tracks.map(raw => new Item(raw)),
+        }));
+      });
+      Dispatcher.dispatch({
+        items,
+        action: ACTIONS.GET_MIXTAPES,
+      });
+    })
+    .fail(err => {
+      console.log(err);
     });
   }
 
@@ -116,6 +155,8 @@ class ItemStore extends Store {
       case ACTIONS.ADD_ITEM: _items.unshift(payload.item); break;
 
       case ACTIONS.GET_ITEMS: _items = payload.items; break;
+
+      case ACTIONS.GET_MIXTAPES: _mixtapes = payload.items; break;
 
       case ACTIONS.ADD_DOWNLOAD: _downloadingItems.add(payload.id); break;
 

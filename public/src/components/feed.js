@@ -153,14 +153,19 @@ class ItemRow extends React.Component {
 
       case ITEM_TYPE.MIXTAPE:
         ret = [
-          <Link 
-            key={key++}
-            className={
-              classNames('ui button', { 'disabled': !this.props.item.uploaded })
-            }
-            to={'/music'}>
-            <i className='play icon'></i>
-          </Link>
+          btn(
+            classNames('ui button', {
+              'loading': this.props.isLoading,
+            }),
+            'play icon',
+            () => {
+              ItemStore.getItem(this.props.item.id)
+                .then(item => {
+                  Player.play(item.tracks.shift());
+                  Player._queue = item.tracks;
+                })
+            },
+          ),
         ];
         if (this.props.item.releaseDate.isAfter(moment())) {
           ret.push(btn(
