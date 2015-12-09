@@ -77,6 +77,17 @@ export default class Feed extends React.Component {
     });
   }
 
+  _toggleFilter(filter) {
+    const filters = ItemStore.hasFilter(filter)
+      ? ItemStore.removeFilter(filter)
+      : ItemStore.addFilter(filter);
+
+    ItemStore.getFeed();
+    this.setState({
+      filters,
+    });
+  }
+
   render() {
     return <div className='ui grid'>
       <Menu />
@@ -86,12 +97,28 @@ export default class Feed extends React.Component {
           onSelect={this.onCreateItem.bind(this)} />
 
         <div id='feed-list' className='ui middle aligned very relaxed divided list'>
+          <div id='feed-filters' className='ui labels'>
+            {
+              this.props.availableFilters.map((filter, i) => {
+                const selected = ItemStore.hasFilter(filter);
+                return <a 
+                  key={i}
+                  className={classNames('ui blue label', {'basic': !selected})}
+                  onClick={this._toggleFilter.bind(this, filter)}>
+                    {filter}
+                    {selected ? <i className='icon close'></i> : ''}
+                  </a>;
+              })
+            }
+          </div>
+
           {this._rows()}
         </div>
       </div>
     </div>;
   }
 }
+Feed.defaultProps = { availableFilters: ['hhh', 'mixtapes', 'soundcloud', 'upcoming'] };
 
 class ItemRow extends React.Component {
   _toggle() {
@@ -155,7 +182,8 @@ class ItemRow extends React.Component {
         ret = [
           btn(
             classNames('ui button', {
-              'loading': this.props.isLoading,
+              'loading': this.props.isLoading || this.props.isDownloading,
+              'disabled': !this.props.item.uploaded,
             }),
             'play icon',
             () => {
@@ -167,7 +195,7 @@ class ItemRow extends React.Component {
             },
           ),
         ];
-        if (this.props.item.releaseDate.isAfter(moment())) {
+        if (this.props.item.releaseDate && this.props.item.releaseDate.isAfter(moment())) {
           ret.push(btn(
              classNames('ui button', {
               'loading': this.props.isDownloading,
@@ -180,7 +208,7 @@ class ItemRow extends React.Component {
                   ends: moment(this.props.item.releaseDate).add(1, 'hours'),
                 }));
              }));
-        } else if (!this.props.item.uploaded) {
+        } else if (this.props.item.releaseDate && !this.props.item.uploaded) {
           ret.push(btn(
             classNames('ui button', {
               'loading': this.props.isDownloading,

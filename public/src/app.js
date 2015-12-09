@@ -12,6 +12,7 @@ $.fn.dropdown = require('semantic-ui-dropdown');
 $.fn.transition = require('semantic-ui-transition');
 $.fn.search = require('semantic-ui-search');
 $.fn.api = require('semantic-ui-api');
+$.fn.checkbox = require('semantic-ui-checkbox');
 
 class feed extends React.Component {
   render() {

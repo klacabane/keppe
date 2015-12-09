@@ -7,6 +7,8 @@ const merge = require('merge');
 const Item = require('./public/src/models/item.js').Item;
 const ITEM_TYPE = require('./public/src/models/item.js').ITEM_TYPE;
 
+const reMixtapeId = /http:\/\/hw-img.datpiff.com\/([a-z0-9A-Z]*)\/.*.(jpg|png)/;
+
 const scRequest = endpoint => {
   return request({
     uri: 'http://api.soundcloud.com' + endpoint,
@@ -68,7 +70,7 @@ const search = {
         .find('.contentItem')
         .not('.noMedia')
         .each((i, elem) => {
-          var $elem = $(elem);
+          const $elem = $(elem);
           const values = {
             title: $elem.find('.title a')
               .attr('title')
@@ -114,23 +116,17 @@ const search = {
 
   /**
    * Tries to resolve a soundcloud track url
-   * No reject
    * url: string - Soundcloud track url
-   * date: moment optional - Date overwriting the soundcloud creation date
-   * returns Item | null
+   * props: object - properties to pass to the Item constructor
+   * returns Item
    */
-  scTrack(url, date) {
+  scTrack(url, props) {
     return scRequest(`/resolve?url=${url}`)
       .then(raw => {
         if (raw.kind === 'track' && raw.streamable) {
-          if (date) raw.created_at = date.format('YYYY/MM/DD HH:mm:ss ZZ');
-          return Item.fromApi(ITEM_TYPE.SOUNDCLOUD, raw);
+          return Item.fromApi(ITEM_TYPE.SOUNDCLOUD, merge(raw, props));
         }
         throw 'Soundcloud url is not streamable or isnt a track';
-      })
-      .catch(err => {
-        console.log('search.scTrack error: ' + err);
-        return null;
       });
   },
 
@@ -151,12 +147,17 @@ const search = {
    */
   upcoming() {
     const scrap = $ => {
-      var items = [];
-      $('#leftColumnWide')
-        .find('.contentItem.grayed')
+      const items = [];
+      $('#leftColumnWide .contentListing')
+        .find('.contentItem')
+        .not('.noMedia')
         .each((i, elem) => {
-          var $elem = $(elem);
+          const $elem = $(elem);
+
+          const img = $elem.find('img').attr('src');
           const values = {
+            img,
+            srcId: img.match(reMixtapeId)[1],
             title: $elem.find('.title a')
               .attr('title')
               .replace('listen to', '')
@@ -164,14 +165,11 @@ const search = {
             artist: $elem.find('.artist')
               .text()
               .trim(),
-            img: $elem.find('img')
-              .attr('src'),
-            releaseDate: moment(
-              new Date($elem.find('.countdown').text())
-            ),
             url: 'http://datpiff.com' + $elem.find('a').attr('href'),
+            releaseDate: $elem.is('.soon') 
+              ? null
+              : moment(new Date($elem.find('.countdown').text())),
           };
-          values.srcId = `${values.title} - ${values.artist}`;
 
           items.push(Item.fromApi(ITEM_TYPE.MIXTAPE, values));
         });
@@ -179,16 +177,6 @@ const search = {
       return items;
     };
 
-    /*
-    return new Promise((resolve, reject) => {
-      require('fs').readFile('../datpiff/datpiff-upcoming.html', 'utf8', (err, data) => {
-        const items = [];
-        const $ = cheerio.load(data);
-
-        resolve(scrap($));
-      })
-      });
-      */
     return request({
       uri: 'http://www.datpiff.com/upcoming',
       transform: cheerio.load,
@@ -208,10 +196,9 @@ const search = {
   findMixtapeTrack(bucket, mixtapeId, track) {
     // Clean track title
     let fullTitle = track.title
-      .replace(/(#|\.|,|'|\$|!)/g, '')
-      .replace('&', ' ');
+      .replace(/(#|\.|,|'|\$|!|-|\\|%|&)/g, '')
     fullTitle = ((track.number < 10 ? '0' : '') + track.number + ' - ' + fullTitle)
-      .substring(0, 55); // start from a reasonable length
+      .substring(0, 57); // start from a reasonable length
 
     const findUrl = title => {
       const url = `http://hw-mp3.datpiff.com/mixtapes/${bucket}/${mixtapeId}/${title}.mp3`;
@@ -265,7 +252,7 @@ const search = {
         img,
         artist: $info.find('.artist').text(),
         title: $info.find('.title').text(),
-        srcId: img.match(/http:\/\/hw-img.datpiff.com\/([a-z0-9A-Z]*)\/.*.(jpg|png)/)[1],
+        srcId: img.match(reMixtapeId)[1],
         tracks: [],
       };
 
@@ -314,7 +301,6 @@ const search = {
   },
 
   /*
-   *
    * Retrieves the $endpoint hhh youtube links and 
    * streamable soundcloud tracks.
    * endpoint: one of ('hot','new','top')
@@ -327,10 +313,18 @@ const search = {
       return sc || yt;
     };
     const toItem = raw => {
+      const props = {
+        src: 'hhh',
+        createdAt: moment.unix(raw.data.created_utc),
+      };
       if (raw.data.domain === 'soundcloud.com')
-        return search.scTrack(raw.data.url, moment.unix(raw.data.created_utc));
+        return search.scTrack(raw.data.url, props)
+          .catch(err => {
+            console.log('Soundcloud track isnt streamable or isnt a track: ' + raw.data.url);
+            return null;
+          });
       else 
-        return Item.fromApi(ITEM_TYPE.YOUTUBE, raw.data);
+        return Item.fromApi(ITEM_TYPE.YOUTUBE, merge(raw.data, props));
     };
 
     const filterMedia = body => body.data.children.filter(isSupported);

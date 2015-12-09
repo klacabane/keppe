@@ -28,6 +28,8 @@ const flatten = arr => [].concat.apply([], arr);
 
 const _downloads = new Map();
 
+const availableFilters = ['hhh', 'mixtapes', 'soundcloud', 'upcoming'];
+
 exports.setup = (router, db) => {
   router.delete('/items/:id', (req, res) => {
     // FIXME: should be reworked for mixtapes
@@ -48,16 +50,64 @@ exports.setup = (router, db) => {
       });
   });
 
-  router.get('/items/feed', (req, res) => {
+  router.get('/items/feed/:start/:filters?', (req, res) => {
+    const skip = Number(req.params.start);
+    const query = {
+      removed: {$exists: false},
+      mixtapes: {$size: 0}, // dont display mixtape tracks
+    };
+    if (req.params.filters) {
+      const conditions = [];
+      req.params.filters
+        .split(',')
+        .forEach(filter => {
+          if (availableFilters.indexOf(filter) > -1) {
+            switch (filter) {
+              case 'hhh':
+                conditions.push({
+                  src: 'hhh',
+                });
+                break;
+              case 'mixtapes':
+                conditions.push({
+                  type: ITEM_TYPE.MIXTAPE,
+                });
+                break;
+              case 'soundcloud':
+                conditions.push({
+                  type: ITEM_TYPE.SOUNDCLOUD,
+                });
+                break;
+              case 'upcoming':
+                conditions.push({
+                  type: ITEM_TYPE.MIXTAPE,
+                  releaseDate: {$gt: new Date()},
+                });
+                break;
+            }
+          }
+        });
+      if (conditions.length) query.$or = conditions;
+    }
+    
     db.collection('items')
-      .find({
-        removed: {$exists: false},
-        //mixtapes: {$size: 0},
-      })
+      .find(query)
       .sort({createdAt: -1})
+      .skip(skip)
+      .limit(11)
       .toArray()
       .then(docs => docs.map(Item.fromDb))
-      .then(items => res.json(items))
+      .then(items => {
+        let hasMore = false;
+        if (items.length > 10) {
+          items.pop();
+          hasMore = true;
+        }
+        res.json({
+          items,
+          hasMore,
+        })
+      })
       .catch(err => {
         res.status(500).end();
         console.log(err.stack);
@@ -68,6 +118,7 @@ exports.setup = (router, db) => {
     db.collection('items')
       .find({
         removed: {$exists: false},
+        uploaded: true,
         type: ITEM_TYPE.MIXTAPE,
       })
       .sort({createdAt: -1})
@@ -201,7 +252,6 @@ exports.setup = (router, db) => {
       .map(track => {
         const obj = track
           .set('createdAt', new Date())
-          .set('releaseDate', new Date())
           .toObject();
         obj.mixtapes = [id];
         delete obj.id;
@@ -221,6 +271,8 @@ exports.setup = (router, db) => {
               title: item.title,
               artist: item.artist,
               srcId: item.srcId,
+              releaseDate: new Date(), // FIXME find the actual release date,
+              colors: item.colors,
             }}
           );
       });
@@ -240,7 +292,7 @@ exports.setup = (router, db) => {
         // Store moment objects as native objects
         const values = item
           .set('createdAt', item.createdAt.toDate())
-          .set('releaseDate', item.releaseDate.toDate())
+          .set('releaseDate', item.releaseDate ? item.releaseDate.toDate() : null)
           .toObject();
         delete values.id;
         return db.collection('items').insertOne(values);

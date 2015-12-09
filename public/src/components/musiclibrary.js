@@ -60,10 +60,10 @@ export default class MusicLibrary extends React.Component {
         </div>
       );
       lastRow.push(mixtape);
-      if ((i % 4 === 0 && i > 0) || i === this.state.mixtapes.length-1) {
+      if (i%5 === 4 || i === this.state.mixtapes.length-1) {
         if (this.state.mixtape && lastRow.find(item => item.id === this.state.mixtape.id)) {
           mixtapes.push(
-            <MixtapeDetails mixtape={this.state.mixtape} />
+            <MixtapeDetails key={this.state.mixtape.id} mixtape={this.state.mixtape} />
           );
         }
         lastRow = [];
@@ -96,7 +96,7 @@ class MixtapeDetails extends React.Component {
 
   _track(item) {
     return ( 
-      <div className='column'>
+      <div key={item.id} className='column'>
         <div className='mixtape-track' onClick={() => Player.play(item)}>
           <div className='ui grid'>
             <div className='two wide right aligned column'>
@@ -125,7 +125,7 @@ class MixtapeDetails extends React.Component {
 
   render() {
     return (
-      <div className="five column row">
+      <div className='five column row'>
         <div className='ui twelve wide column'>
           <div id='mixtape-track-list' className='ui two column grid'>
             {this._trackList()}
@@ -133,8 +133,6 @@ class MixtapeDetails extends React.Component {
         </div>
         <div className='ui four wide column'>
           <img src={this.props.mixtape.img} />
-          {this.props.mixtape.title}
-          {this.props.mixtape.artist}
         </div>
       </div>
     );

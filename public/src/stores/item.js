@@ -1,6 +1,7 @@
 'use strict';
 
 import $ from 'jquery';
+import Immutable from 'immutable';
 import merge from 'merge';
 import { Store } from 'flux/utils';
 import Dispatcher from '../dispatcher.js';
@@ -11,6 +12,7 @@ let _items = [];
 let _mixtapes = [];
 let _downloadingItems = new Set();
 let _removingItems = new Set();
+let _filters = new Immutable.Set();
 
 class ItemStore extends Store {
   constructor() {
@@ -24,6 +26,24 @@ class ItemStore extends Store {
 
   mixtapes() {
     return _mixtapes;
+  }
+
+  filters() {
+    return _filters;
+  }
+
+  addFilter(filter) {
+    _filters = _filters.add(filter);
+    return _filters;
+  }
+
+  removeFilter(filter) {
+    _filters = _filters.remove(filter);
+    return _filters;
+  }
+
+  hasFilter(filter) {
+    return _filters.has(filter);
   }
 
   isDownloading(id) {
@@ -116,15 +136,17 @@ class ItemStore extends Store {
     });
   }
 
-  getFeed() {
+  getFeed(start) {
+    start = start || 0;
     return $.ajax({
       method: 'GET',
-      url: 'api/items/feed',
+      url: 'api/items/feed/' + start + '/' + _filters.join(','),
     })
     .then(res => {
       Dispatcher.dispatch({
         action: ACTIONS.GET_ITEMS,
-        items: res.map(raw => new Item(raw)),
+        items: res.items.map(raw => new Item(raw)),
+        hasMore: res.hasMore,
       });
     });
   }

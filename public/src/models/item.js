@@ -12,21 +12,6 @@ const ITEM_TYPE = {
   MIXTAPE: 4,
 }
 
-const source = {
-  youtube: {
-    name: 'YouTube',
-    img: '/images/youtube-icon.png',
-  },
-  soundcloud: {
-    name: 'SoundCloud',
-    img: '/images/soundcloud-icon.png',
-  },
-  mixtape: {
-    name: 'Mixtape',
-    img: '/images/mixtape-icon.png',
-  },
-}
-
 const reYtId = /watch\?v=([-_a-zA-Z0-9]*)/;
 
 class Item extends Immutable.Record({
@@ -38,7 +23,8 @@ class Item extends Immutable.Record({
   img: '',
   uploaded: false,
   createdAt: moment(),
-  releaseDate: moment(),
+  releaseDate: null,
+  src: '',
   srcId: 0,
   number: 0,
   mixtapes: [],
@@ -47,7 +33,7 @@ class Item extends Immutable.Record({
 
   constructor(values) {
     values.createdAt = moment(values.createdAt);
-    values.releaseDate = moment(values.releaseDate);
+    values.releaseDate = values.releaseDate ? moment(values.releaseDate) : null;
     values.type = typeof values.type === 'string'
       ? Number(values.type)
       : values.type;
@@ -79,8 +65,11 @@ class Item extends Immutable.Record({
           artist: raw.user.username,
           url: raw.uri,
           img: '/images/soundcloud-icon.png',
+          src: raw.src || 'soundcloud',
           srcId: raw.id,
-          createdAt: moment(raw.created_at, 'YYYY/MM/DD HH:mm:ss ZZ'),
+          createdAt: raw.createdAt
+            ? raw.createdAt
+            : moment(raw.created_at, 'YYYY/MM/DD HH:mm:ss ZZ'),
         };
         break;
 
@@ -90,6 +79,7 @@ class Item extends Immutable.Record({
           title: raw.title,
           url: raw.url,
           img: '/images/youtube-icon.png',
+          src: raw.src || 'youtube',
           srcId: raw.domain === 'youtu.be'
             ? raw.url.split('/').pop()
             : reYtId.exec(unescape(raw.url))[1],
