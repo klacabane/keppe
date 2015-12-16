@@ -8,6 +8,7 @@ const Item = require('./public/src/models/item.js').Item;
 const ITEM_TYPE = require('./public/src/models/item.js').ITEM_TYPE;
 
 const reMixtapeId = /http:\/\/hw-img.datpiff.com\/([a-z0-9A-Z]*)\/.*.(jpg|png)/;
+const reYtUrl = /^(?:https?:\/\/)?(?:www\.)?(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))((\w|-){11})(?:\S+)?$/;
 
 const scRequest = endpoint => {
   return request({
@@ -55,6 +56,7 @@ const search = {
             return Item.fromApi(ITEM_TYPE.YOUTUBE, {
               title: raw.snippet.title,
               url: `http://youtube.com/watch?v=${raw.id.videoId}`,
+              srcId: raw.id.videoId,
             });
           });
       });
@@ -108,6 +110,7 @@ const search = {
           item = Item.fromApi(ITEM_TYPE.YOUTUBE, {
             title: res.items[0].snippet.title,
             url: `http://youtube.com/watch?v=${id}`,
+            srcId: id,
           });
         }
         return item;
@@ -196,7 +199,7 @@ const search = {
   findMixtapeTrack(bucket, mixtapeId, track) {
     // Clean track title
     let fullTitle = track.title
-      .replace(/(#|\.|,|'|\$|!|-|\\|%|&)/g, '')
+      .replace(/(#|\.|,|'|\$|!|-|\\|%|&|@|\/)/g, '')
     fullTitle = ((track.number < 10 ? '0' : '') + track.number + ' - ' + fullTitle)
       .substring(0, 57); // start from a reasonable length
 
@@ -242,22 +245,25 @@ const search = {
    * Retrieves a datpiff mixtape.
    * returns Item - mixtape
    */
-  mixtape(url) {
+  mixtape(doc) {
     const scrap = $ => {
+      const img = $('meta[property="og:image"]').attr('content');
       const $content = $('#leftColumnWide');
-      const $info = $content.find('.info');
 
-      const img = $content.find('#coverImage1').attr('src');
       const mixtape = {
         img,
-        artist: $info.find('.artist').text(),
-        title: $info.find('.title').text(),
         srcId: img.match(reMixtapeId)[1],
         tracks: [],
       };
 
-      $('#leftColumnWide')
-        .find('.tracklist li')
+      let $tracklist = $('#leftColumnWide').find('.tracklist');;
+      if (!$tracklist.length) {
+        $tracklist = $('.track-list');
+        if (!$tracklist.length) throw `Couldnt find tracklist of mixtape ${mixtape.title}\n${doc.url}`;
+      }
+
+      $tracklist
+        .children()
         .each((_, elem) => {
           const $elem = $(elem);
           const number = Number($elem.find('.tracknumber').text().replace('.', ''));
@@ -266,8 +272,8 @@ const search = {
           mixtape.tracks.push({
             number,
             img,
-            title,
-            artist: mixtape.artist,
+            title: title,
+            artist: doc.artist,
             srcId: mixtape.srcId + ' ' + number,
           });
         });
@@ -294,7 +300,7 @@ const search = {
     }
 
     return request({
-      uri: url,
+      uri: doc.url,
       transform: cheerio.load,
     })
     .then(scrap);
@@ -309,7 +315,7 @@ const search = {
   hhh(endpoint) {
     const isSupported = raw => {
       const sc = raw.data.domain === 'soundcloud.com' && raw.data.url.indexOf('/sets/') === -1;
-      const yt = ['youtube.com', 'youtu.be'].indexOf(raw.data.domain) > -1;
+      const yt = reYtUrl.test(raw.data.url);
       return sc || yt;
     };
     const toItem = raw => {
@@ -324,7 +330,9 @@ const search = {
             return null;
           });
       else 
-        return Item.fromApi(ITEM_TYPE.YOUTUBE, merge(raw.data, props));
+        return Item.fromApi(ITEM_TYPE.YOUTUBE, merge(raw.data, props, {
+          srcId: reYtUrl.exec(raw.data.url)[1],
+        }));
     };
 
     const filterMedia = body => body.data.children.filter(isSupported);

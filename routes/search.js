@@ -5,21 +5,19 @@ const search = require('../search.js');
 exports.setup = (router, db) => {
   router.get('/search/:term', (req, res) => {
     Promise.all([
-      search.youtube(req.params.term, 5),
-      search.datpiff(req.params.term, 5),
+      search.datpiff(req.params.term, 7),
+      search.youtube(req.params.term, 7),
     ])
     .then(result => {
       const ret = {
-        results: {
-          youtube: {
-            name: 'YouTube',
-            results: result[0],
-          },
-          datpiff: {
-            name: 'DatPiff',
-            results: result[1],
-          },
-        }
+        datpiff: {
+          name: 'DatPiff',
+          results: result[0],
+        },
+        youtube: {
+          name: 'YouTube',
+          results: result[1],
+        },
       };
 
       res.json(ret);

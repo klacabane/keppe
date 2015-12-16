@@ -6,6 +6,7 @@ import classNames from 'classnames';
 import moment from 'moment';
 import Menu from './menu.js';
 import Player from '../player/player.js';
+import AudioPlayer from './audioplayer.js';
 import MusicFinder from './musicfinder.js';
 import { Link } from 'react-router';
 import { Item, ITEM_TYPE } from '../models/item.js';
@@ -21,6 +22,8 @@ export default class Feed extends React.Component {
       items: ItemStore.items(),
       currentTrack: Player.current(),
     };
+    this.index = 0;
+    ItemStore.getFeed();
   }
 
   onItemRemove(item) {
@@ -29,7 +32,7 @@ export default class Feed extends React.Component {
       Player.stop();
     }
 
-    ItemStore.removeItem(item);
+    ItemStore.removeItem(item, this.index);
   }
 
   onItemDownload(item) {
@@ -39,6 +42,16 @@ export default class Feed extends React.Component {
   onCreateItem(item) {
     ItemStore.addItem(item);
   } 
+
+  getPrevItems() {
+    this.index -= 10;
+    ItemStore.getFeed(this.index);
+  }
+
+  getNextItems() {
+    this.index += 10;
+    ItemStore.getFeed(this.index);
+  }
 
   componentDidMount() {
     Player.addCallback('state', 'Feed', () => {
@@ -50,6 +63,7 @@ export default class Feed extends React.Component {
     this.sub = ItemStore.addListener(() => {
       this.setState({
         items: ItemStore.items(),
+        hasMore: ItemStore.hasMore(),
       });
     });
   }
@@ -82,6 +96,7 @@ export default class Feed extends React.Component {
       ? ItemStore.removeFilter(filter)
       : ItemStore.addFilter(filter);
 
+    this.index = 0;
     ItemStore.getFeed();
     this.setState({
       filters,
@@ -113,8 +128,26 @@ export default class Feed extends React.Component {
           </div>
 
           {this._rows()}
+          <div id='feed-nav' className='ui buttons'>
+            <button 
+              className={classNames('ui button', {
+                'disabled': this.index === 0,
+              })}
+              onClick={this.getPrevItems.bind(this)}>
+              <i className='left chevron icon'></i>
+            </button>
+            <button 
+              className={classNames('ui button', {
+                'disabled': !this.state.hasMore,
+              })}
+              onClick={this.getNextItems.bind(this)}>
+              <i className='right chevron icon'></i>
+            </button>
+          </div>
         </div>
       </div>
+
+      <AudioPlayer />
     </div>;
   }
 }
@@ -185,7 +218,9 @@ class ItemRow extends React.Component {
               'loading': this.props.isLoading || this.props.isDownloading,
               'disabled': !this.props.item.uploaded,
             }),
-            'play icon',
+            Player.playing() && this.props.item.tracks.indexOf(Player.current().item.id) > -1
+              ? 'pause icon'
+              : 'play icon',
             () => {
               ItemStore.getItem(this.props.item.id)
                 .then(item => {
@@ -232,7 +267,7 @@ class ItemRow extends React.Component {
     return <div className='item'>
       <img className='ui mini image' src={this.props.item.img} />
       <div className='content item-content'>
-        <div className='header'>{this.props.item.title}</div>
+        <div className='oneline header'>{this.props.item.title}</div>
         <div className='description'>{this.props.item.artist}</div>
       </div>
       <div className='right floated content item-actions'>

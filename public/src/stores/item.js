@@ -9,6 +9,7 @@ import { Item, ITEM_TYPE } from '../models/item.js';
 import ACTIONS from '../constants.js';
 
 let _items = [];
+let _hasMore = false;
 let _mixtapes = [];
 let _downloadingItems = new Set();
 let _removingItems = new Set();
@@ -17,7 +18,6 @@ let _filters = new Immutable.Set();
 class ItemStore extends Store {
   constructor() {
     super(Dispatcher);
-    this.getFeed();
   }
 
   items() {
@@ -26,6 +26,10 @@ class ItemStore extends Store {
 
   mixtapes() {
     return _mixtapes;
+  }
+
+  hasMore() {
+    return _hasMore;
   }
 
   filters() {
@@ -62,7 +66,6 @@ class ItemStore extends Store {
           id,
         });
       };
-      console.log(res);
       if (res.err) {
         rmDl();
         // stop
@@ -74,6 +77,7 @@ class ItemStore extends Store {
       } else {
         rmDl();
         this.getFeed();
+        this.getMixtapes();
       }
     };
 
@@ -119,7 +123,7 @@ class ItemStore extends Store {
     });
   }
 
-  removeItem(item) {
+  removeItem(item, from) {
     Dispatcher.dispatch({
       action: ACTIONS.RM_ITEM,
       id: item.id,
@@ -129,7 +133,7 @@ class ItemStore extends Store {
       method: 'DELETE',
       url: `api/items/${item.id}`,
     }).done(() => {
-      this.getFeed()
+      this.getFeed(from || 0)
         .then(() => {
           _removingItems.delete(item.id);
         });
@@ -176,7 +180,7 @@ class ItemStore extends Store {
     switch (payload.action) {
       case ACTIONS.ADD_ITEM: _items.unshift(payload.item); break;
 
-      case ACTIONS.GET_ITEMS: _items = payload.items; break;
+      case ACTIONS.GET_ITEMS: _items = payload.items; _hasMore = payload.hasMore; break;
 
       case ACTIONS.GET_MIXTAPES: _mixtapes = payload.items; break;
 

@@ -109,7 +109,8 @@ export default class QuickEvent extends React.Component {
     return (
       <div id='quickevent' className='fixed'>
         <div className='ui form attached fluid segment'>
-          <div className='ui large fluid transparent input'>
+          <div className='ui left icon large fluid transparent input'>
+            <i className='calendar outline icon'></i>
             <input placeholder='Quick event' onFocus={this.suggest.bind(this)} onBlur={this.onBlur.bind(this)} onKeyUp={this.suggest.bind(this)} />
           </div>
         </div>

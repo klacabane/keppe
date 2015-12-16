@@ -159,6 +159,7 @@ class Player {
         this._player = this._htmlPlayer;
         this._player.src = item.url;
         this._player.volume = this._volume;
+        this._player.currentTime = 0;
         this._player.play();
         break;
     }
@@ -199,6 +200,10 @@ class Player {
   repeat(val) {
     if (typeof val === 'undefined') return this._repeat;
     this._repeat = !!val;
+  }
+
+  seek(seconds) {
+    if (this._player === this._htmlPlayer) this._player.currentTime = seconds;
   }
 
   stop() {

@@ -10,4 +10,7 @@ export default {
 
   ADD_DAY_EVENT: 'add-day-event',
   GET_MONTH: 'get-month',
+
+  SEARCH_LOADING: 'search-loading',
+  SEARCH_RESULTS: 'search-results',
 };

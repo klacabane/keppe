@@ -72,7 +72,7 @@ class MonthStore extends Store {
 
   __onDispatch(payload) {
     switch (payload.action) {
-      case ACTIONS.ADD_EVENT: 
+      case ACTIONS.ADD_DAY_EVENT: 
         const addEvent = day => {
           if (!day) return;
 

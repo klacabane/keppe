@@ -4,6 +4,7 @@ import Menu from './menu.js';
 import AudioPlayer from './audioplayer.js';
 import Player from '../player/player.js';
 import ItemStore from '../stores/item.js';
+import MusicFinder from './musicfinder.js';
 
 export default class MusicLibrary extends React.Component {
   constructor() {
@@ -78,6 +79,8 @@ export default class MusicLibrary extends React.Component {
         <Menu />
 
         <div className='twelve wide column'>
+          <MusicFinder
+            onSelect={ItemStore.addItem.bind(ItemStore)} />
           <div id='mixtapes-list' className='ui five column grid'>
             {this._rows()}
           </div>
@@ -100,7 +103,7 @@ class MixtapeDetails extends React.Component {
         <div className='mixtape-track' onClick={() => Player.play(item)}>
           <div className='ui grid'>
             <div className='two wide right aligned column'>
-              {Player.current().item && Player.current().item.srcId === item.srcId ? <i className='volume down icon'></i> : item.number}
+              {Player.current().item && Player.current().item.srcId === item.srcId && Player.playing() ? <i className='volume down icon'></i> : item.number}
             </div>
             <div className='fourteen wide column title'>
               {item.title}

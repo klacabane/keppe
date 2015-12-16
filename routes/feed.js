@@ -32,11 +32,23 @@ const availableFilters = ['hhh', 'mixtapes', 'soundcloud', 'upcoming'];
 
 exports.setup = (router, db) => {
   router.delete('/items/:id', (req, res) => {
+    const id = ObjectId.createFromHexString(req.params.id);
     // FIXME: should be reworked for mixtapes
     db.collection('items')
-      .findOneAndUpdate(
-        {_id: ObjectId.createFromHexString(req.params.id)}, 
-        {$set: {removed: true}
+      .findOne({_id: id})
+      .then(doc => {
+        if (!doc) throw err_doc_not_found;
+        if (doc.type === ITEM_TYPE.MIXTAPE) {
+        
+        } else {
+          // Track type
+          if (doc.mixtapes.length > 1) {
+            // remove from the given mixtape
+          } else {
+            return db.collection('items')
+              .findOneAndUpdate({_id: id}, {$set: {removed: true}});
+          }
+        }
       })
       .then(result => {
         if (result.value.uploaded && result.value.type !== ITEM_TYPE.MIXTAPE) {
@@ -71,6 +83,7 @@ exports.setup = (router, db) => {
               case 'mixtapes':
                 conditions.push({
                   type: ITEM_TYPE.MIXTAPE,
+                  uploaded: true,
                 });
                 break;
               case 'soundcloud':
@@ -173,7 +186,7 @@ exports.setup = (router, db) => {
       res.json(status);
 
       if (doc.type === ITEM_TYPE.MIXTAPE) {
-        return search.mixtape(doc.url)
+        return search.mixtape(doc)
           .then(item => updateMixtape(doc._id, item));
       } else {
         const dl = new Download({
@@ -268,8 +281,6 @@ exports.setup = (router, db) => {
               uploaded: true,
               tracks: res.insertedIds,
               img: item.img,
-              title: item.title,
-              artist: item.artist,
               srcId: item.srcId,
               releaseDate: new Date(), // FIXME find the actual release date,
               colors: item.colors,
@@ -295,16 +306,20 @@ exports.setup = (router, db) => {
           .set('releaseDate', item.releaseDate ? item.releaseDate.toDate() : null)
           .toObject();
         delete values.id;
-        return db.collection('items').insertOne(values);
-      })
-      .then(doc => {
-        if (doc._id) return doc;
-        return merge(doc.ops[0], {inserted: true});
+        return db.collection('items')
+          .insertOne(values)
+          .then(d => {
+            return merge(d.ops[0], {inserted: true});
+          });
       });
   };
 
+  /**
+   * Queries soundcloud accounts, hhh endpoints, upcoming mixtapes and 
+   * inserts the new items.
+   */
   const cron = () => {
-    const insert = arr => Promise.all(arr.map(insertIfNotExists));
+    const insert = items => Promise.all(items.map(insertIfNotExists));
     const filterDuplicates = items => {
       const seen = new Set();
       return items.filter(item => {

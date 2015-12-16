@@ -12,8 +12,6 @@ const ITEM_TYPE = {
   MIXTAPE: 4,
 }
 
-const reYtId = /watch\?v=([-_a-zA-Z0-9]*)/;
-
 class Item extends Immutable.Record({
   id: '',
   type: ITEM_TYPE.UNKNOWN,
@@ -80,9 +78,7 @@ class Item extends Immutable.Record({
           url: raw.url,
           img: '/images/youtube-icon.png',
           src: raw.src || 'youtube',
-          srcId: raw.domain === 'youtu.be'
-            ? raw.url.split('/').pop()
-            : reYtId.exec(unescape(raw.url))[1],
+          srcId: raw.srcId,
         };
         break;
 
